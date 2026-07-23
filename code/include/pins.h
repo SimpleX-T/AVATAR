@@ -20,6 +20,10 @@ constexpr uint8_t FIRE_VALVE_PIN   = 21;
 // Irrigation
 // =========================
 constexpr uint8_t SOIL_SENSOR_PIN = 33;
+constexpr uint8_t IRRIGATION_PUMP_PIN = 22;
+constexpr uint8_t IRRIGATION_VALVE_PIN = 23;
+constexpr uint8_t CHEMIGATION_PUMP_PIN = 19;
+constexpr uint8_t CHEMIGATION_VALVE_PIN = 17;
 
 // =========================
 // Climate
