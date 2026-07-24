@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include "led.h"
 #include "pins.h"
 
 namespace led

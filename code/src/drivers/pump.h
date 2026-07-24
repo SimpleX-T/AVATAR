@@ -9,4 +9,12 @@ namespace pump
 
     void valveOn();
     void valveOff();
+
+    void irrigationOn();
+    void irrigationOff();
+
+    void chemigationOn();
+    void chemigationOff();
+
+    void allOff();
 }
