@@ -1,8 +1,53 @@
-# Off-Grid Smart Agriculture Controller
+# Night Garden
 
-ESP32 firmware for the Group A27H final-year project. The controller monitors
-soil and climate conditions, irrigates dry soil, runs a motion-triggered
-acoustic deterrent, and performs a directional local fire response.
+Night Garden is an off-grid agricultural monitoring and protection system built
+around an ESP32. The repository now includes:
+
+- ESP32 firmware with simulation and hardware modes;
+- Wi-Fi telemetry and remote-command support;
+- a zero-dependency Node.js server;
+- local JSONL telemetry storage; and
+- a responsive realtime field-station dashboard.
+
+You can run the complete network with only an ESP32, USB cable, computer, and
+Wi-Fi connection. Start with [the connection guide](docs/CONNECTIONS.md).
+
+## Quick start with no sensors
+
+1. Start the server:
+
+   ```bash
+   cd server
+   npm start
+   ```
+
+2. Copy and edit the ESP32 secrets:
+
+   ```bash
+   cd ../code
+   cp include/secrets.example.h include/secrets.h
+   ```
+
+3. Set your Wi-Fi name, password, and computer LAN IP in `secrets.h`.
+
+4. Upload and monitor:
+
+   ```bash
+   pio run --target upload
+   pio device monitor
+   ```
+
+5. Open `http://localhost:8787`.
+
+Simulation mode is enabled by default:
+
+```cpp
+constexpr bool SIMULATION_MODE = true;
+constexpr bool ENABLE_PHYSICAL_OUTPUTS = false;
+```
+
+That combination prevents physical actuator control while you build the network
+and dashboard.
 
 ## What was already present
 
@@ -18,6 +63,7 @@ acoustic deterrent, and performs a directional local fire response.
 - `src/drivers/`: direct hardware actions. Drivers do not make farm decisions.
 - `src/modules/`: climate, irrigation, motion, and fire control rules.
 - `src/utils/`: rollover-safe timing and readable serial status output.
+- `src/network/`: Wi-Fi, HTTP telemetry, and remote-command polling.
 - `src/main.cpp`: initializes everything and gives every module a short turn.
 
 This separation matters: changing a pump pin should not change irrigation
@@ -33,6 +79,8 @@ policy, and changing an irrigation threshold should not change the pump driver.
 5. Chemigation is not triggered by soil moisture. It requires the serial `c`
    command because chemical type, crop, concentration, and schedule are not
    known to this prototype.
+6. Simulation mode skips hardware initialization, and actuator drivers enforce
+   a separate physical-output kill switch.
 
 ## Pin map
 
@@ -66,6 +114,9 @@ pio device monitor
 - `r`: clear the fire-response safety lockout after inspection
 - `?`: print command help
 
+In simulation mode, field scenarios are controlled from the dashboard rather
+than through the chemigation serial command.
+
 ## Before connecting pumps
 
 Do not power a pump, valve, or servo from an ESP32 GPIO. Use properly rated
@@ -89,3 +140,9 @@ Update `include/config.h` after observing real serial readings:
 cd code
 pio run
 ```
+
+## Network security boundary
+
+The included server is for a trusted local network. Before internet deployment,
+add dashboard authentication, HTTPS, a production database, rate limiting, and
+unique rotated device credentials. Do not forward port `8787` from a router.
