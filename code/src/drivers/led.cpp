@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "led.h"
+#include "config.h"
 #include "pins.h"
 
 namespace led
@@ -10,9 +11,11 @@ namespace led
         off();
     }
 
-    void on()
-    {
-        digitalWrite(LED_PIN, HIGH);
+void on()
+{
+    if (!ENABLE_PHYSICAL_OUTPUTS)
+        return;
+    digitalWrite(LED_PIN, HIGH);
     }
 
     void off()
@@ -20,8 +23,10 @@ namespace led
         digitalWrite(LED_PIN, LOW);
     }
 
-    void toggle()
-    {
-        digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+void toggle()
+{
+    if (!ENABLE_PHYSICAL_OUTPUTS)
+        return;
+    digitalWrite(LED_PIN, !digitalRead(LED_PIN));
     }
 }

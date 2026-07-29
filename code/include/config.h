@@ -4,6 +4,18 @@
 // possible without changing the control flow.
 constexpr unsigned long SERIAL_BAUD = 115200;
 
+// Development mode lets the complete Wi-Fi/server/dashboard path run with
+// only an ESP32 connected. Physical sensor reads and actuator writes are
+// skipped until both switches are changed deliberately.
+constexpr bool SIMULATION_MODE = true;
+constexpr bool ENABLE_PHYSICAL_OUTPUTS = false;
+
+// Network
+constexpr unsigned long WIFI_RETRY_INTERVAL = 10000;
+constexpr unsigned long TELEMETRY_INTERVAL = 5000;
+constexpr unsigned long COMMAND_POLL_INTERVAL = 2000;
+constexpr unsigned long HTTP_TIMEOUT = 3000;
+
 // Sensor sampling
 constexpr unsigned long CLIMATE_READ_INTERVAL = 2500;
 constexpr unsigned long SOIL_READ_INTERVAL = 500;

@@ -2,6 +2,7 @@
 
 #include "pins.h"
 #include "pump.h"
+#include "config.h"
 
 namespace pump
 {
@@ -20,6 +21,8 @@ void begin()
 
 void fireOn()
 {
+    if (!ENABLE_PHYSICAL_OUTPUTS)
+        return;
     digitalWrite(FIRE_PUMP_PIN, HIGH);
 }
 
@@ -30,6 +33,8 @@ void fireOff()
 
 void valveOn()
 {
+    if (!ENABLE_PHYSICAL_OUTPUTS)
+        return;
     digitalWrite(FIRE_VALVE_PIN, HIGH);
 }
 
@@ -40,6 +45,8 @@ void valveOff()
 
 void irrigationOn()
 {
+    if (!ENABLE_PHYSICAL_OUTPUTS)
+        return;
     digitalWrite(IRRIGATION_VALVE_PIN, HIGH);
     digitalWrite(IRRIGATION_PUMP_PIN, HIGH);
 }
@@ -52,6 +59,8 @@ void irrigationOff()
 
 void chemigationOn()
 {
+    if (!ENABLE_PHYSICAL_OUTPUTS)
+        return;
     digitalWrite(CHEMIGATION_VALVE_PIN, HIGH);
     digitalWrite(CHEMIGATION_PUMP_PIN, HIGH);
 }

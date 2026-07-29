@@ -3,6 +3,7 @@
 #include "buzzer.h"
 #include "climate.h"
 #include "config.h"
+#include "connectivity.h"
 #include "fire.h"
 #include "helpers.h"
 #include "irrigation.h"
@@ -10,6 +11,7 @@
 #include "motion.h"
 #include "pump.h"
 #include "servo.h"
+#include "simulation.h"
 #include "state.h"
 #include "timer.h"
 
@@ -35,13 +37,20 @@ void handleSerial(unsigned long now)
             break;
         case 'c':
         case 'C':
-            if (!irrigation::startChemigation(now))
+            if (SIMULATION_MODE)
+                Serial.println("[SIMULATION] Use the dashboard to send simulation commands.");
+            else if (!irrigation::startChemigation(now))
                 Serial.println("[CHEMIGATION] Request rejected: another operation or safety lockout is active.");
             break;
         case 'x':
         case 'X':
-            irrigation::emergencyStop();
-            motion::stop();
+            if (SIMULATION_MODE)
+                simulation::clearOverrides();
+            else
+            {
+                irrigation::emergencyStop();
+                motion::stop();
+            }
             Serial.println("[CONTROL] Irrigation, chemigation and deterrent stopped.");
             break;
         case 'r':
@@ -62,17 +71,26 @@ void setup()
 {
     Serial.begin(SERIAL_BAUD);
 
-    led::begin();
-    pump::begin();
-    buzzer::begin();
-    fireServo::begin();
-    climate::begin();
-    fireControl::begin();
-    irrigation::begin();
-    motion::begin();
+    connectivity::begin();
 
-    led::on();
-    Serial.println("\nOff-grid smart agriculture controller ready.");
+    if (SIMULATION_MODE)
+    {
+        simulation::begin();
+    }
+    else
+    {
+        led::begin();
+        pump::begin();
+        buzzer::begin();
+        fireServo::begin();
+        climate::begin();
+        fireControl::begin();
+        irrigation::begin();
+        motion::begin();
+    }
+
+    Serial.printf("\nNight Garden controller ready (%s mode).\n",
+                  SIMULATION_MODE ? "simulation" : "hardware");
     printCommandHelp();
 }
 
@@ -80,10 +98,19 @@ void loop()
 {
     const unsigned long now = millis();
 
-    climate::update(now);
-    motion::update(now);
-    irrigation::update(now);
-    fireControl::update(now);
+    if (SIMULATION_MODE)
+    {
+        simulation::update(now);
+    }
+    else
+    {
+        climate::update(now);
+        motion::update(now);
+        irrigation::update(now);
+        fireControl::update(now);
+    }
+
+    connectivity::update(now);
     handleSerial(now);
 
     if (elapsedSince(now, lastStatusAt, STATUS_PRINT_INTERVAL))

@@ -1,6 +1,7 @@
 #include <Arduino.h>
 
 #include "buzzer.h"
+#include "config.h"
 #include "pins.h"
 
 namespace
@@ -18,6 +19,8 @@ void begin()
 
 void on()
 {
+    if (!ENABLE_PHYSICAL_OUTPUTS)
+        return;
     digitalWrite(BUZZER_PIN, HIGH);
     active = true;
 }

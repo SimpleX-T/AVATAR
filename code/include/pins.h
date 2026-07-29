@@ -36,3 +36,4 @@ constexpr uint8_t LDR_PIN = 36;
 // =========================
 constexpr uint8_t BUZZER_PIN = 26;
 constexpr uint8_t LED_PIN    = 27;
+constexpr uint8_t ONBOARD_LED_PIN = 2;

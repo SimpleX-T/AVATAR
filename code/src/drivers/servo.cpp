@@ -13,6 +13,8 @@ namespace fireServo
 {
 void begin()
 {
+    if (!ENABLE_PHYSICAL_OUTPUTS)
+        return;
     servoMotor.setPeriodHertz(50);
     servoMotor.attach(FIRE_SERVO_PIN, 500, 2400);
     center();
@@ -20,6 +22,8 @@ void begin()
 
 void pointTo(FireDirection direction)
 {
+    if (!ENABLE_PHYSICAL_OUTPUTS)
+        return;
     switch (direction)
     {
     case FireDirection::Left:
@@ -36,6 +40,8 @@ void pointTo(FireDirection direction)
 
 void center()
 {
+    if (!ENABLE_PHYSICAL_OUTPUTS)
+        return;
     servoMotor.write(SERVO_CENTER);
 }
 }
