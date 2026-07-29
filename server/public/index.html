@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#09110d" />
+    <title>Night Garden · Field Station</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="atmosphere" aria-hidden="true"></div>
+    <main>
+      <header class="masthead">
+        <div>
+          <p class="eyebrow">OFF-GRID FIELD STATION / 001</p>
+          <h1>Night Garden</h1>
+        </div>
+        <div class="connection" id="connection">
+          <span class="connection__pulse"></span>
+          <span id="connection-label">Waiting for the garden</span>
+        </div>
+      </header>
+
+      <section class="hero-grid">
+        <article class="signal-panel">
+          <p class="panel-label">Soil signal</p>
+          <div class="hero-reading">
+            <strong id="soil-value">—</strong>
+            <span>raw ADC</span>
+          </div>
+          <canvas id="soil-chart" aria-label="Recent soil moisture readings"></canvas>
+          <div class="signal-scale">
+            <span>wet</span><span>dry</span>
+          </div>
+        </article>
+
+        <article class="climate-panel">
+          <p class="panel-label">Microclimate</p>
+          <dl class="paired-readings">
+            <div>
+              <dt>Air</dt>
+              <dd><span id="temperature-value">—</span><small>°C</small></dd>
+            </div>
+            <div>
+              <dt>Humidity</dt>
+              <dd><span id="humidity-value">—</span><small>%</small></dd>
+            </div>
+          </dl>
+          <p class="field-note" id="climate-note">
+            Awaiting the first transmission from the ESP32.
+          </p>
+        </article>
+      </section>
+
+      <section class="operations">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">CONTROL SURFACE</p>
+            <h2>Simulate the field</h2>
+          </div>
+          <p>Commands are queued on the server and collected by the ESP32.</p>
+        </div>
+
+        <div class="command-grid">
+          <button data-action="SIMULATE_DRY_SOIL">
+            <span class="button-index">01</span>
+            <strong>Dry the soil</strong>
+            <small>Raise the simulated soil reading</small>
+          </button>
+          <button data-action="SIMULATE_MOTION">
+            <span class="button-index">02</span>
+            <strong>Trigger motion</strong>
+            <small>Create a ten-second detection</small>
+          </button>
+          <button data-action="LED_ON">
+            <span class="button-index">03</span>
+            <strong>Wake the beacon</strong>
+            <small>Turn on the onboard LED</small>
+          </button>
+          <button data-action="CLEAR_SIMULATION" class="command-muted">
+            <span class="button-index">04</span>
+            <strong>Clear the field</strong>
+            <small>Return simulation to baseline</small>
+          </button>
+        </div>
+      </section>
+
+      <section class="lower-grid">
+        <article class="system-map">
+          <p class="panel-label">System state</p>
+          <div class="state-row">
+            <span>Mode</span><strong id="mode-value">—</strong>
+          </div>
+          <div class="state-row">
+            <span>Signal</span><strong id="rssi-value">—</strong>
+          </div>
+          <div class="state-row">
+            <span>Motion</span><strong id="motion-value">—</strong>
+          </div>
+          <div class="state-row">
+            <span>Fire response</span><strong id="fire-value">—</strong>
+          </div>
+        </article>
+
+        <article class="transmission-log">
+          <div class="log-heading">
+            <p class="panel-label">Transmission log</p>
+            <span id="last-seen">No signal yet</span>
+          </div>
+          <ol id="event-log" aria-live="polite"></ol>
+        </article>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status"></div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
