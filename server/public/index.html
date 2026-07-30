@@ -2,117 +2,260 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#09110d" />
-    <title>Night Garden · Field Station</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#f4f0e6" />
+    <title>Night Garden · Agricultural Control Dashboard</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <div class="atmosphere" aria-hidden="true"></div>
-    <main>
-      <header class="masthead">
-        <div>
-          <p class="eyebrow">OFF-GRID FIELD STATION / 001</p>
-          <h1>Night Garden</h1>
-        </div>
-        <div class="connection" id="connection">
-          <span class="connection__pulse"></span>
-          <span id="connection-label">Waiting for the garden</span>
-        </div>
-      </header>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Night Garden dashboard home">
+        <span class="brand__mark" aria-hidden="true">NG</span>
+        <span>
+          <strong>Night Garden</strong>
+          <small>Smart Agricultural Control System</small>
+        </span>
+      </a>
 
-      <section class="hero-grid">
-        <article class="signal-panel">
-          <p class="panel-label">Soil signal</p>
-          <div class="hero-reading">
-            <strong id="soil-value">—</strong>
-            <span>raw ADC</span>
+      <div class="connection-stamp" id="connection" role="status">
+        <span class="connection-stamp__light" aria-hidden="true"></span>
+        <span>
+          <small>ESP32 CONNECTION</small>
+          <strong id="connection-label">WAITING FOR DATA</strong>
+        </span>
+      </div>
+    </header>
+
+    <main>
+      <section class="page-intro" aria-labelledby="dashboard-title">
+        <div>
+          <p class="section-code">LIVE MONITOR / DEVICE 001</p>
+          <h1 id="dashboard-title">Farm condition at a glance</h1>
+        </div>
+        <p class="intro-copy">
+          Live simulated readings from the ESP32. Values update automatically
+          every five seconds.
+        </p>
+      </section>
+
+      <section class="metric-grid" aria-label="Current environmental readings">
+        <article class="metric metric--yellow">
+          <div class="metric__header">
+            <h2>Air temperature</h2>
+            <span class="metric__state">SIMULATED</span>
           </div>
-          <canvas id="soil-chart" aria-label="Recent soil moisture readings"></canvas>
-          <div class="signal-scale">
-            <span>wet</span><span>dry</span>
-          </div>
+          <p class="metric__reading">
+            <strong id="temperature-value">—</strong><span>°C</span>
+          </p>
+          <p class="metric__explanation">Temperature around the crop area.</p>
         </article>
 
-        <article class="climate-panel">
-          <p class="panel-label">Microclimate</p>
-          <dl class="paired-readings">
-            <div>
-              <dt>Air</dt>
-              <dd><span id="temperature-value">—</span><small>°C</small></dd>
-            </div>
-            <div>
-              <dt>Humidity</dt>
-              <dd><span id="humidity-value">—</span><small>%</small></dd>
-            </div>
-          </dl>
-          <p class="field-note" id="climate-note">
-            Awaiting the first transmission from the ESP32.
+        <article class="metric metric--blue">
+          <div class="metric__header">
+            <h2>Air humidity</h2>
+            <span class="metric__state">SIMULATED</span>
+          </div>
+          <p class="metric__reading">
+            <strong id="humidity-value">—</strong><span>%</span>
+          </p>
+          <p class="metric__explanation">Moisture currently present in the air.</p>
+        </article>
+
+        <article class="metric metric--green">
+          <div class="metric__header">
+            <h2>Soil moisture</h2>
+            <span class="metric__state" id="soil-state">WAITING</span>
+          </div>
+          <p class="metric__reading">
+            <strong id="soil-value">—</strong><span>ADC</span>
+          </p>
+          <p class="metric__explanation" id="soil-explanation">
+            Waiting for the soil reading.
+          </p>
+        </article>
+
+        <article class="metric metric--paper">
+          <div class="metric__header">
+            <h2>Device status</h2>
+            <span class="metric__state" id="device-state">OFFLINE</span>
+          </div>
+          <p class="metric__reading metric__reading--word">
+            <strong id="device-word">WAIT</strong>
+          </p>
+          <p class="metric__explanation" id="last-seen">
+            No transmission received.
           </p>
         </article>
       </section>
 
-      <section class="operations">
+      <section class="field-section">
+        <article class="field-visual">
+          <div class="panel-heading">
+            <div>
+              <p class="section-code">SYSTEM FLOW</p>
+              <h2>How the field station is behaving</h2>
+            </div>
+            <span class="simulation-label">SIMULATION MODE</span>
+          </div>
+
+          <canvas
+            id="field-canvas"
+            role="img"
+            aria-label="Animated diagram showing the ESP32 receiving field readings and sending them to the dashboard"
+          ></canvas>
+
+          <p class="canvas-description">
+            The ESP32 generates sample sensor readings, sends them to the local
+            server, and receives demonstration commands from this dashboard.
+          </p>
+        </article>
+
+        <article class="interpretation-panel" aria-labelledby="interpretation-title">
+          <div class="panel-heading panel-heading--compact">
+            <div>
+              <p class="section-code">PLAIN-LANGUAGE SUMMARY</p>
+              <h2 id="interpretation-title">What the readings mean</h2>
+            </div>
+          </div>
+
+          <dl class="interpretation-list">
+            <div>
+              <dt>Soil condition</dt>
+              <dd id="soil-summary">Waiting for a reading.</dd>
+            </div>
+            <div>
+              <dt>Motion detector</dt>
+              <dd id="motion-summary">Waiting for a reading.</dd>
+            </div>
+            <div>
+              <dt>Fire detector</dt>
+              <dd id="fire-summary">Waiting for a reading.</dd>
+            </div>
+            <div>
+              <dt>Wi-Fi signal</dt>
+              <dd id="signal-summary">Waiting for a reading.</dd>
+            </div>
+          </dl>
+
+          <div class="overall-status" id="overall-status">
+            <span aria-hidden="true">!</span>
+            <p>
+              <strong>System waiting</strong>
+              Start the ESP32 to receive the first transmission.
+            </p>
+          </div>
+        </article>
+      </section>
+
+      <section class="controls-section" aria-labelledby="controls-title">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">CONTROL SURFACE</p>
-            <h2>Simulate the field</h2>
+            <p class="section-code">SAFE DEMONSTRATION CONTROLS</p>
+            <h2 id="controls-title">Test the system without sensors</h2>
           </div>
-          <p>Commands are queued on the server and collected by the ESP32.</p>
+          <p>
+            These controls change simulated values only. Physical outputs remain
+            disabled.
+          </p>
         </div>
 
         <div class="command-grid">
-          <button data-action="SIMULATE_DRY_SOIL">
-            <span class="button-index">01</span>
-            <strong>Dry the soil</strong>
-            <small>Raise the simulated soil reading</small>
+          <button type="button" data-action="SIMULATE_DRY_SOIL">
+            <span class="command__symbol" aria-hidden="true">↓</span>
+            <span>
+              <strong>Simulate dry soil</strong>
+              <small>Raises the soil reading above the irrigation threshold.</small>
+            </span>
           </button>
-          <button data-action="SIMULATE_MOTION">
-            <span class="button-index">02</span>
-            <strong>Trigger motion</strong>
-            <small>Create a ten-second detection</small>
+
+          <button type="button" data-action="SIMULATE_MOTION">
+            <span class="command__symbol" aria-hidden="true">)))</span>
+            <span>
+              <strong>Simulate movement</strong>
+              <small>Marks motion as detected for ten seconds.</small>
+            </span>
           </button>
-          <button data-action="LED_ON">
-            <span class="button-index">03</span>
-            <strong>Wake the beacon</strong>
-            <small>Turn on the onboard LED</small>
+
+          <button type="button" data-action="LED_ON">
+            <span class="command__symbol" aria-hidden="true">●</span>
+            <span>
+              <strong>Turn onboard LED on</strong>
+              <small>Switches on the blue LED fitted to the ESP32 board.</small>
+            </span>
           </button>
-          <button data-action="CLEAR_SIMULATION" class="command-muted">
-            <span class="button-index">04</span>
-            <strong>Clear the field</strong>
-            <small>Return simulation to baseline</small>
+
+          <button
+            type="button"
+            data-action="CLEAR_SIMULATION"
+            class="command--secondary"
+          >
+            <span class="command__symbol" aria-hidden="true">×</span>
+            <span>
+              <strong>Reset simulation</strong>
+              <small>Returns every simulated condition to its normal state.</small>
+            </span>
           </button>
         </div>
       </section>
 
-      <section class="lower-grid">
-        <article class="system-map">
-          <p class="panel-label">System state</p>
-          <div class="state-row">
-            <span>Mode</span><strong id="mode-value">—</strong>
+      <section class="details-grid">
+        <article class="system-details">
+          <div class="panel-heading panel-heading--compact">
+            <div>
+              <p class="section-code">TECHNICAL DETAILS</p>
+              <h2>Device information</h2>
+            </div>
           </div>
-          <div class="state-row">
-            <span>Signal</span><strong id="rssi-value">—</strong>
-          </div>
-          <div class="state-row">
-            <span>Motion</span><strong id="motion-value">—</strong>
-          </div>
-          <div class="state-row">
-            <span>Fire response</span><strong id="fire-value">—</strong>
-          </div>
+
+          <table>
+            <tbody>
+              <tr>
+                <th scope="row">Device identifier</th>
+                <td id="device-id-value">night-garden-001</td>
+              </tr>
+              <tr>
+                <th scope="row">Operating mode</th>
+                <td id="mode-value">—</td>
+              </tr>
+              <tr>
+                <th scope="row">Wi-Fi strength</th>
+                <td id="rssi-value">—</td>
+              </tr>
+              <tr>
+                <th scope="row">Motion</th>
+                <td id="motion-value">—</td>
+              </tr>
+              <tr>
+                <th scope="row">Fire response</th>
+                <td id="fire-value">—</td>
+              </tr>
+            </tbody>
+          </table>
         </article>
 
         <article class="transmission-log">
-          <div class="log-heading">
-            <p class="panel-label">Transmission log</p>
-            <span id="last-seen">No signal yet</span>
+          <div class="panel-heading panel-heading--compact">
+            <div>
+              <p class="section-code">RECENT ACTIVITY</p>
+              <h2>Transmission log</h2>
+            </div>
           </div>
-          <ol id="event-log" aria-live="polite"></ol>
+          <ol id="event-log" aria-live="polite">
+            <li class="log-empty">No activity recorded yet.</li>
+          </ol>
         </article>
       </section>
     </main>
 
-    <div class="toast" id="toast" role="status"></div>
+    <footer>
+      <strong>NIGHT GARDEN / GROUP A27H</strong>
+      <span>Off-grid IoT-enabled agricultural management system</span>
+    </footer>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <script type="module" src="/app.js"></script>
   </body>
 </html>

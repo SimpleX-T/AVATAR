@@ -34,7 +34,10 @@ assert.equal(healthResponse.status, 200);
 
 const dashboardResponse = await fetch(baseUrl);
 assert.equal(dashboardResponse.status, 200);
-assert.match(await dashboardResponse.text(), /Night Garden · Field Station/);
+assert.match(
+  await dashboardResponse.text(),
+  /Night Garden · Agricultural Control Dashboard/,
+);
 
 const unauthorizedResponse = await fetch(`${baseUrl}/api/device/telemetry`, {
   method: "POST",
