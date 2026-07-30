@@ -4,10 +4,11 @@
 
 ## Visual World
 
-Night Garden is a printed field-control sheet brought to life: cream paper,
-heavy black rules, offset ink shadows, block colors, technical annotations, and
-one live canvas illustration. It uses neo-brutalist clarity without becoming
-noisy or cryptic.
+Night Garden is a printed field-control sheet brought to life: generated warm
+paper grain, hand-rendered studies of the project sensors and actuators, heavy
+black rules, offset ink shadows, block colors, technical annotations, and one
+live canvas illustration. It uses neo-brutalist clarity without becoming noisy
+or cryptic.
 
 The physical scene is a brightly lit classroom or projector screen during an
 academic defence. This forces a light-first interface with strong contrast.
@@ -68,6 +69,7 @@ the canvas is offscreen, and becomes static under reduced-motion settings.
 Supporting motion is limited to:
 
 - a short status stamp when telemetry arrives;
+- articulated character details such as a bird wing and the farmer's glance;
 - a 120ms button press with offset-shadow movement; and
 - number updates highlighted by a brief paper-flash.
 

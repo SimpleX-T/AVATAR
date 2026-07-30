@@ -1,4 +1,19 @@
 <svg id="emoji" viewBox="0 0 72 72" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    #hair, #skin {
+      transform-box: fill-box;
+      transform-origin: 50% 85%;
+      animation: farmer-glance 5.5s ease-in-out infinite;
+    }
+    @keyframes farmer-glance {
+      0%, 40%, 100% { transform: rotate(0deg); }
+      48%, 62% { transform: rotate(-4deg); }
+      70%, 82% { transform: rotate(3deg); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #hair, #skin { animation: none; }
+    }
+  </style>
   <g id="color">
     <path fill="#B1CC33" d="M54.9702,59.0416c0,0,2-13.9922-10-13.9922c-3.1919,2.1279-5.9264,3.5985-9,3.5922h0.125 c-3.0736,0.0063-5.8082-1.4643-9-3.5922c-12,0-10,13.9922-10,13.9922"/>
     <polyline fill="#5C9E31" points="27.0327,45.0494 32.8364,53.9364 36.0327,48.6416"/>

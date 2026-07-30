@@ -2,6 +2,8 @@ const deviceId = "night-garden-001";
 const dryThreshold = 1800;
 const eventLog = document.querySelector("#event-log");
 const toast = document.querySelector("#toast");
+const copyLogsButton = document.querySelector("#copy-logs");
+const downloadLogsButton = document.querySelector("#download-logs");
 let lastTelemetryAt = 0;
 
 const elements = {
@@ -49,12 +51,72 @@ function addLog(message, timestamp = new Date()) {
     second: "2-digit",
   });
   description.textContent = message;
+  item.dataset.timestamp = new Date(timestamp).toISOString();
+  item.dataset.message = message;
   item.append(time, description);
   eventLog.prepend(item);
 
   while (eventLog.children.length > 7) {
     eventLog.lastElementChild.remove();
   }
+}
+
+function getLogRows() {
+  return [...eventLog.querySelectorAll("li[data-timestamp]")].map((item) => ({
+    timestamp: item.dataset.timestamp,
+    message: item.dataset.message,
+  }));
+}
+
+async function copyLogs() {
+  const rows = getLogRows();
+  if (!rows.length) {
+    showToast("NO LOG ENTRIES TO COPY");
+    return;
+  }
+
+  const text = [
+    "timestamp\tmessage",
+    ...rows.map(({ timestamp, message }) => `${timestamp}\t${message}`),
+  ].join("\n");
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+  } else {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.setAttribute("readonly", "");
+    textArea.style.position = "fixed";
+    textArea.style.opacity = "0";
+    document.body.append(textArea);
+    textArea.select();
+    const copied = document.execCommand("copy");
+    textArea.remove();
+    if (!copied) throw new Error("Clipboard access unavailable");
+  }
+  showToast(`${rows.length} LOG ENTRIES COPIED`);
+}
+
+function downloadLogs() {
+  const rows = getLogRows();
+  if (!rows.length) {
+    showToast("NO LOG ENTRIES TO DOWNLOAD");
+    return;
+  }
+
+  const escapeCsv = (value) => `"${String(value).replaceAll('"', '""')}"`;
+  const csv = [
+    ["timestamp", "message"],
+    ...rows.map(({ timestamp, message }) => [timestamp, message]),
+  ]
+    .map((row) => row.map(escapeCsv).join(","))
+    .join("\r\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `night-garden-log-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+  showToast(`${rows.length} LOG ENTRIES DOWNLOADED`);
 }
 
 function showToast(message) {
@@ -468,6 +530,13 @@ eventSource.addEventListener("command", (event) => {
   const action = command.action.toLowerCase().replaceAll("_", " ");
   addLog(`Command queued: ${action}`);
 });
+eventSource.addEventListener("command-status", (event) => {
+  const command = JSON.parse(event.data);
+  const action = command.action.toLowerCase().replaceAll("_", " ");
+  const status = command.applied ? "applied" : "rejected";
+  addLog(`Command ${status}: ${action}`, command.acknowledgedAt);
+  showToast(`${action} — ${status}`.toUpperCase());
+});
 eventSource.onerror = () => {
   if (Date.now() - lastTelemetryAt > 12_000) {
     markOffline("Live server connection interrupted.");
@@ -484,3 +553,8 @@ loadState().catch((error) => {
   markOffline(error.message);
   showToast(error.message.toUpperCase());
 });
+
+copyLogsButton.addEventListener("click", () => {
+  copyLogs().catch(() => showToast("COPY FAILED — USE DOWNLOAD CSV"));
+});
+downloadLogsButton.addEventListener("click", downloadLogs);

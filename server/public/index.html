@@ -171,7 +171,9 @@
 
         <div class="command-grid">
           <button type="button" data-action="SIMULATE_DRY_SOIL">
-            <span class="command__symbol" aria-hidden="true">↓</span>
+            <span class="command__illustration" aria-hidden="true">
+              <img src="/assets/generated/soil-sensor.webp" alt="" />
+            </span>
             <span>
               <strong>Simulate dry soil</strong>
               <small>Raises the soil reading above the irrigation threshold.</small>
@@ -179,7 +181,9 @@
           </button>
 
           <button type="button" data-action="SIMULATE_MOTION">
-            <span class="command__symbol" aria-hidden="true">)))</span>
+            <span class="command__illustration" aria-hidden="true">
+              <img src="/assets/generated/pir-sensor.webp" alt="" />
+            </span>
             <span>
               <strong>Simulate movement</strong>
               <small>Marks motion as detected for ten seconds.</small>
@@ -187,7 +191,9 @@
           </button>
 
           <button type="button" data-action="LED_ON">
-            <span class="command__symbol" aria-hidden="true">●</span>
+            <span class="command__illustration" aria-hidden="true">
+              <img src="/assets/generated/esp32-led.webp" alt="" />
+            </span>
             <span>
               <strong>Turn onboard LED on</strong>
               <small>Switches on the blue LED fitted to the ESP32 board.</small>
@@ -199,7 +205,9 @@
             data-action="CLEAR_SIMULATION"
             class="command--secondary"
           >
-            <span class="command__symbol" aria-hidden="true">×</span>
+            <span class="command__illustration" aria-hidden="true">
+              <img src="/assets/generated/reset-button.webp" alt="" />
+            </span>
             <span>
               <strong>Reset simulation</strong>
               <small>Returns every simulated condition to its normal state.</small>
@@ -244,10 +252,14 @@
         </article>
 
         <article class="transmission-log">
-          <div class="panel-heading panel-heading--compact">
+          <div class="panel-heading panel-heading--compact log-heading">
             <div>
               <p class="section-code">RECENT ACTIVITY</p>
               <h2>Transmission log</h2>
+            </div>
+            <div class="log-actions" aria-label="Transmission log actions">
+              <button type="button" id="copy-logs">Copy logs</button>
+              <button type="button" id="download-logs">Download CSV</button>
             </div>
           </div>
           <ol id="event-log" aria-live="polite">

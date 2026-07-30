@@ -29,10 +29,14 @@ body {
   min-width: 320px;
   margin: 0;
   background-color: var(--paper);
-  background-image: radial-gradient(rgba(17, 17, 15, 0.08) 0.7px, transparent 0.7px);
-  background-size: 5px 5px;
+  background-image:
+    linear-gradient(rgba(244, 240, 230, 0.18), rgba(244, 240, 230, 0.18)),
+    url("/assets/generated/paper-field-background.webp");
+  background-position: center top;
+  background-size: cover;
+  background-attachment: fixed;
   color: var(--ink);
-  font-family: var(--reading);
+  font-family: var(--display);
   font-size: 17px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -527,6 +531,54 @@ h2 {
   font-weight: 900;
 }
 
+.command__illustration {
+  display: grid;
+  width: 92px;
+  height: 92px;
+  flex: 0 0 auto;
+  place-items: center;
+  overflow: hidden;
+  border: 2px solid var(--ink);
+  background: var(--paper-bright);
+}
+
+.command__illustration img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  mix-blend-mode: multiply;
+}
+
+.log-heading {
+  align-items: center;
+}
+
+.log-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.log-actions button {
+  min-height: 44px;
+  border: 2px solid var(--ink);
+  background: var(--paper-bright);
+  box-shadow: 3px 3px 0 var(--ink);
+  padding: 8px 12px;
+  color: var(--ink);
+  font: 900 12px/1 var(--display);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    transform 120ms var(--ease-out),
+    box-shadow 120ms var(--ease-out);
+}
+
+.log-actions button:active {
+  box-shadow: none;
+  transform: translate(3px, 3px);
+}
+
 .command-grid strong,
 .command-grid small {
   display: block;
@@ -746,7 +798,7 @@ footer a {
   .site-header,
   .page-intro,
   .section-heading,
-  .panel-heading,
+  .panel-heading:not(.log-heading),
   footer {
     align-items: flex-start;
     flex-direction: column;
@@ -793,6 +845,11 @@ footer a {
 
   .command-grid button {
     min-height: 155px;
+  }
+
+  .command__illustration {
+    width: 82px;
+    height: 82px;
   }
 
   #event-log li {

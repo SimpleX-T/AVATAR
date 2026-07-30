@@ -78,6 +78,26 @@ const pollResponse = await fetch(
 const command = await pollResponse.json();
 assert.equal(command.action, "SIMULATE_MOTION");
 
+const acknowledgementResponse = await fetch(
+  `${baseUrl}/api/device/commands/ack`,
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      commandId: command.commandId,
+      deviceId: telemetry.deviceId,
+      action: command.action,
+      applied: true,
+    }),
+  },
+);
+assert.equal(acknowledgementResponse.status, 202);
+const acknowledgement = await acknowledgementResponse.json();
+assert.equal(acknowledgement.applied, true);
+
 const emptyPollResponse = await fetch(
   `${baseUrl}/api/device/commands/next?deviceId=${telemetry.deviceId}`,
   { headers: { Authorization: `Bearer ${token}` } },

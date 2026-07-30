@@ -83,36 +83,67 @@ void sendTelemetry()
     http.end();
 }
 
-void applyCommand(const String &payload)
+bool applyCommand(const String &payload, String &commandId, String &action)
 {
     JsonDocument document;
     if (deserializeJson(document, payload))
     {
         Serial.println("[COMMAND] Invalid JSON received.");
-        return;
+        return false;
     }
 
-    const char *action = document["action"] | "";
-    const char *commandId = document["commandId"] | "";
+    action = String(document["action"] | "");
+    commandId = String(document["commandId"] | "");
     const unsigned long now = millis();
 
-    if (strcmp(action, "SIMULATE_MOTION") == 0)
+    if (action == "SIMULATE_MOTION")
         simulation::triggerMotion(now);
-    else if (strcmp(action, "SIMULATE_DRY_SOIL") == 0)
+    else if (action == "SIMULATE_DRY_SOIL")
         simulation::makeSoilDry();
-    else if (strcmp(action, "CLEAR_SIMULATION") == 0)
+    else if (action == "CLEAR_SIMULATION")
         simulation::clearOverrides();
-    else if (strcmp(action, "LED_ON") == 0)
+    else if (action == "LED_ON")
         digitalWrite(ONBOARD_LED_PIN, HIGH);
-    else if (strcmp(action, "LED_OFF") == 0)
+    else if (action == "LED_OFF")
         digitalWrite(ONBOARD_LED_PIN, LOW);
     else
     {
-        Serial.printf("[COMMAND] Rejected unknown action: %s\n", action);
-        return;
+        Serial.printf("[COMMAND] Rejected unknown action: %s\n", action.c_str());
+        return false;
     }
 
-    Serial.printf("[COMMAND] Applied %s (%s)\n", action, commandId);
+    Serial.printf("[COMMAND] Applied %s (%s)\n", action.c_str(), commandId.c_str());
+    return true;
+}
+
+void acknowledgeCommand(const String &commandId, const String &action, bool applied)
+{
+    if (commandId.isEmpty())
+        return;
+
+    HTTPClient http;
+    const String url = String(SERVER_BASE_URL) + "/api/device/commands/ack";
+    http.setTimeout(HTTP_TIMEOUT);
+
+    if (!http.begin(url))
+        return;
+
+    addAuthorization(http);
+    http.addHeader("Content-Type", "application/json");
+
+    JsonDocument document;
+    document["commandId"] = commandId;
+    document["deviceId"] = DEVICE_ID;
+    document["action"] = action;
+    document["applied"] = applied;
+
+    String body;
+    serializeJson(document, body);
+    const int status = http.POST(body);
+    if (status < 200 || status >= 300)
+        Serial.printf("[HTTP] Command acknowledgement failed: %d\n", status);
+
+    http.end();
 }
 
 void pollCommand()
@@ -128,7 +159,16 @@ void pollCommand()
     addAuthorization(http);
     const int status = http.GET();
     if (status == HTTP_CODE_OK)
-        applyCommand(http.getString());
+    {
+        const String payload = http.getString();
+        http.end();
+
+        String commandId;
+        String action;
+        const bool applied = applyCommand(payload, commandId, action);
+        acknowledgeCommand(commandId, action, applied);
+        return;
+    }
     else if (status != HTTP_CODE_NO_CONTENT)
         Serial.printf("[HTTP] Command poll failed: %d\n", status);
 

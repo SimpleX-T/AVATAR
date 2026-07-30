@@ -18,6 +18,7 @@ const state = {
   latest: null,
   history: [],
   commands: new Map(),
+  inFlightCommands: new Map(),
   connectedBrowsers: new Set(),
 };
 
@@ -26,6 +27,7 @@ const mimeTypes = {
   ".css": "text/css; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".svg": "image/svg+xml",
+  ".webp": "image/webp",
   ".json": "application/json; charset=utf-8",
 };
 
@@ -111,7 +113,33 @@ function nextDeviceCommand(request, response, url) {
     return response.end();
   }
 
+  state.inFlightCommands.set(command.commandId, command);
   return json(response, 200, command);
+}
+
+async function acknowledgeDeviceCommand(request, response) {
+  if (!isDeviceAuthorized(request)) {
+    return json(response, 401, { error: "Invalid device token" });
+  }
+
+  try {
+    const payload = await readJsonBody(request);
+    const command = state.inFlightCommands.get(payload.commandId);
+    if (!command || command.deviceId !== payload.deviceId) {
+      return json(response, 404, { error: "Command was not awaiting acknowledgement" });
+    }
+
+    const acknowledgement = {
+      ...command,
+      applied: payload.applied === true,
+      acknowledgedAt: new Date().toISOString(),
+    };
+    state.inFlightCommands.delete(command.commandId);
+    publish("command-status", acknowledgement);
+    return json(response, 202, acknowledgement);
+  } catch (error) {
+    return json(response, 400, { error: error.message });
+  }
 }
 
 async function enqueueCommand(request, response) {
@@ -223,6 +251,13 @@ const server = createServer(async (request, response) => {
     url.pathname === "/api/device/commands/next"
   ) {
     return nextDeviceCommand(request, response, url);
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/device/commands/ack"
+  ) {
+    return acknowledgeDeviceCommand(request, response);
   }
 
   if (request.method === "POST" && url.pathname === "/api/commands") {
