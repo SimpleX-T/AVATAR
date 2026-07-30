@@ -25,6 +25,7 @@ html {
 }
 
 body {
+  position: relative;
   min-width: 320px;
   margin: 0;
   background-color: var(--paper);
@@ -35,6 +36,58 @@ body {
   font-size: 17px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+.ambient-characters {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ambient-character {
+  position: absolute;
+  display: block;
+  width: 92px;
+  filter: drop-shadow(4px 4px 0 rgba(17, 17, 15, 0.16));
+  opacity: 0.88;
+  transform-origin: 50% 100%;
+}
+
+.ambient-character--bird {
+  top: 8.5%;
+  right: max(14px, calc((100vw - 1600px) / 2));
+  width: 105px;
+  animation: ambient-bird 13s ease-in-out infinite alternate;
+}
+
+.ambient-character--rabbit {
+  top: 34%;
+  left: max(12px, calc((100vw - 1640px) / 2));
+  width: 94px;
+  animation: ambient-peek 7s var(--ease-out) infinite;
+}
+
+.ambient-character--farmer {
+  top: 61%;
+  right: max(8px, calc((100vw - 1650px) / 2));
+  width: 118px;
+  animation: ambient-worker 8s ease-in-out infinite;
+}
+
+.ambient-character--snail {
+  top: 84%;
+  left: max(18px, calc((100vw - 1620px) / 2));
+  width: 78px;
+  animation: ambient-snail 18s linear infinite alternate;
+}
+
+.site-header,
+main,
+footer {
+  position: relative;
+  z-index: 1;
 }
 
 button,
@@ -573,6 +626,11 @@ footer {
   font-size: 12px;
 }
 
+footer a {
+  color: var(--paper-bright);
+  text-underline-offset: 3px;
+}
+
 .toast {
   position: fixed;
   right: 24px;
@@ -617,6 +675,49 @@ footer {
   }
 }
 
+@keyframes ambient-bird {
+  0% {
+    transform: translate3d(-8px, 2px, 0) rotate(-3deg);
+  }
+  48% {
+    transform: translate3d(8px, -10px, 0) rotate(2deg);
+  }
+  100% {
+    transform: translate3d(-2px, 5px, 0) rotate(-1deg);
+  }
+}
+
+@keyframes ambient-peek {
+  0%,
+  26%,
+  100% {
+    transform: translate3d(0, 18px, 0) rotate(-2deg);
+  }
+  38%,
+  72% {
+    transform: translate3d(0, 0, 0) rotate(2deg);
+  }
+}
+
+@keyframes ambient-worker {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-1deg);
+  }
+  50% {
+    transform: translate3d(-10px, -3px, 0) rotate(1deg);
+  }
+}
+
+@keyframes ambient-snail {
+  from {
+    transform: translate3d(-10px, 0, 0);
+  }
+  to {
+    transform: translate3d(18px, 0, 0);
+  }
+}
+
 @media (max-width: 1120px) {
   .metric-grid,
   .command-grid {
@@ -629,6 +730,10 @@ footer {
 
   #field-canvas {
     height: 390px;
+  }
+
+  .ambient-character {
+    opacity: 0.22;
   }
 }
 
@@ -693,6 +798,14 @@ footer {
   #event-log li {
     grid-template-columns: 90px 1fr;
   }
+
+  .ambient-character--farmer {
+    top: 67%;
+  }
+
+  .ambient-character--rabbit {
+    top: 38%;
+  }
 }
 
 @media (max-width: 420px) {
@@ -746,6 +859,7 @@ footer {
 
   .controls-section,
   .toast,
+  .ambient-characters,
   #field-canvas {
     display: none;
   }

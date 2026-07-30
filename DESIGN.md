@@ -60,10 +60,10 @@ always written in text and never communicated by color alone.
 
 The single authored moment is the live field canvas. It visualizes the system
 connection and telemetry: a signal travels from an ESP32 marker through a sensor
-line into a growing field trace. Slow birds, a peeking rabbit, and a distant
-field worker make the simulated farm feel inhabited while remaining visually
-behind the sensor story. Motion pauses when the tab is hidden, stops when the
-canvas is offscreen, and becomes static under reduced-motion settings.
+line into a growing field trace. Licensed illustrated characters sit around the
+paper surface with slow, low-amplitude motion, giving the page life without
+competing with the readings. Motion pauses when the tab is hidden, stops when
+the canvas is offscreen, and becomes static under reduced-motion settings.
 
 Supporting motion is limited to:
 

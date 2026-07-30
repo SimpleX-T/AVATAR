@@ -103,6 +103,7 @@ class FieldCanvas {
     this.canvas = canvas;
     this.context = canvas.getContext("2d");
     this.telemetry = null;
+    this.connected = false;
     this.visible = true;
     this.frame = 0;
     this.reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -124,8 +125,14 @@ class FieldCanvas {
     this.start();
   }
 
-  update(telemetry) {
+  update(telemetry, connected = true) {
     this.telemetry = telemetry;
+    this.connected = connected;
+    this.draw(performance.now());
+  }
+
+  setConnected(connected) {
+    this.connected = connected;
     this.draw(performance.now());
   }
 
@@ -209,111 +216,6 @@ class FieldCanvas {
     }
   }
 
-  drawBird(x, y, scale, phase) {
-    const context = this.context;
-    const wingLift = Math.sin(phase) * 3 * scale;
-
-    context.save();
-    context.translate(x, y);
-    context.lineCap = "round";
-    context.lineJoin = "round";
-    context.strokeStyle = "#11110f";
-    context.lineWidth = Math.max(2, 2.5 * scale);
-
-    context.beginPath();
-    context.moveTo(-15 * scale, 2 * scale);
-    context.quadraticCurveTo(-8 * scale, -7 * scale - wingLift, 0, 0);
-    context.quadraticCurveTo(8 * scale, -7 * scale + wingLift, 15 * scale, 2 * scale);
-    context.stroke();
-    context.restore();
-  }
-
-  drawRabbit(x, soilY, scale, phase) {
-    const context = this.context;
-    const peek = (Math.sin(phase) + 1) * 2.5 * scale;
-    const headY = soilY - 14 * scale - peek;
-
-    context.save();
-    context.translate(x, headY);
-    context.fillStyle = "#fffdf5";
-    context.strokeStyle = "#11110f";
-    context.lineWidth = Math.max(2, 2.5 * scale);
-
-    for (const direction of [-1, 1]) {
-      context.beginPath();
-      context.ellipse(
-        direction * 7 * scale,
-        -18 * scale,
-        4.5 * scale,
-        13 * scale,
-        direction * 0.16,
-        0,
-        Math.PI * 2,
-      );
-      context.fill();
-      context.stroke();
-    }
-
-    context.beginPath();
-    context.arc(0, 0, 14 * scale, 0, Math.PI * 2);
-    context.fill();
-    context.stroke();
-
-    context.fillStyle = "#11110f";
-    context.beginPath();
-    context.arc(-5 * scale, -2 * scale, 1.8 * scale, 0, Math.PI * 2);
-    context.arc(5 * scale, -2 * scale, 1.8 * scale, 0, Math.PI * 2);
-    context.fill();
-
-    context.beginPath();
-    context.moveTo(-2 * scale, 4 * scale);
-    context.lineTo(2 * scale, 4 * scale);
-    context.lineTo(0, 7 * scale);
-    context.closePath();
-    context.fillStyle = "#ff6b57";
-    context.fill();
-    context.restore();
-  }
-
-  drawFieldWorker(x, soilY, scale, phase) {
-    const context = this.context;
-    const step = Math.sin(phase) * 3 * scale;
-    const bodyY = soilY - 48 * scale;
-
-    context.save();
-    context.translate(x, 0);
-    context.strokeStyle = "#11110f";
-    context.fillStyle = "#7db7ff";
-    context.lineCap = "round";
-    context.lineWidth = Math.max(2, 3 * scale);
-
-    context.beginPath();
-    context.arc(0, bodyY - 16 * scale, 8 * scale, 0, Math.PI * 2);
-    context.fillStyle = "#ffd9a0";
-    context.fill();
-    context.stroke();
-
-    context.beginPath();
-    context.moveTo(-13 * scale, bodyY - 22 * scale);
-    context.lineTo(13 * scale, bodyY - 22 * scale);
-    context.lineTo(8 * scale, bodyY - 29 * scale);
-    context.lineTo(-6 * scale, bodyY - 29 * scale);
-    context.closePath();
-    context.fillStyle = "#ff6b57";
-    context.fill();
-    context.stroke();
-
-    context.fillStyle = "#7db7ff";
-    context.fillRect(-8 * scale, bodyY - 8 * scale, 16 * scale, 28 * scale);
-    context.strokeRect(-8 * scale, bodyY - 8 * scale, 16 * scale, 28 * scale);
-
-    this.line(x - 5 * scale, bodyY + 20 * scale, x - 8 * scale - step, soilY, 3);
-    this.line(x + 5 * scale, bodyY + 20 * scale, x + 8 * scale + step, soilY, 3);
-    this.line(x - 7 * scale, bodyY, x - 16 * scale + step, bodyY + 15 * scale, 3);
-    this.line(x + 7 * scale, bodyY, x + 16 * scale - step, bodyY + 15 * scale, 3);
-    context.restore();
-  }
-
   draw(time) {
     if (!this.width || !this.height) return;
 
@@ -321,10 +223,11 @@ class FieldCanvas {
     const width = this.width;
     const height = this.height;
     const soilY = height * 0.67;
-    const live = Boolean(this.telemetry);
-    const readings = this.telemetry?.readings;
-    const soilRaw = Number(readings?.soilRaw || 1450);
-    const isDry = soilRaw >= dryThreshold;
+    const live = this.connected;
+  const readings = this.telemetry?.readings;
+    const soilRaw = Number(readings?.soilRaw);
+    const hasSoilReading = Number.isFinite(soilRaw);
+    const isDry = hasSoilReading && soilRaw >= dryThreshold;
     const t = this.reducedMotion ? 0 : time / 1000;
 
     context.clearRect(0, 0, width, height);
@@ -335,20 +238,6 @@ class FieldCanvas {
     for (let x = 0; x < width; x += 22) this.line(x, 0, x, height, 1);
     for (let y = 0; y < height; y += 22) this.line(0, y, width, y, 1);
     context.globalAlpha = 1;
-
-    const birdTravel = this.reducedMotion ? 0.42 : (t * 0.018) % 1;
-    this.drawBird(
-      width * (0.08 + birdTravel * 0.5),
-      height * 0.19 + Math.sin(t * 0.45) * 4,
-      0.85,
-      t * 2.1,
-    );
-    this.drawBird(
-      width * (0.22 + birdTravel * 0.38),
-      height * 0.28 + Math.sin(t * 0.38 + 1.4) * 3,
-      0.62,
-      t * 1.8 + 1.2,
-    );
 
     context.fillStyle = isDry ? "#ff9b6f" : "#b9f34a";
     context.fillRect(0, soilY, width, height - soilY);
@@ -370,11 +259,6 @@ class FieldCanvas {
       const sway = Math.sin(t * 1.2 + index) * 3;
       this.drawPlant(x, soilY, 0.75 + (index % 3) * 0.08, sway);
     }
-
-    if (width >= 520) {
-      this.drawFieldWorker(width * 0.64, soilY, 0.72, t * 0.9);
-    }
-    this.drawRabbit(width * (width < 520 ? 0.72 : 0.76), soilY, 0.72, t * 0.7);
 
     const probeX = width * 0.54;
     this.line(probeX, soilY - 54, probeX, soilY + 58, 5);
@@ -403,7 +287,7 @@ class FieldCanvas {
     this.label("ESP32 FIELD UNIT", deviceX + 18, deviceY + 31, 13);
     this.label(live ? "CONNECTED" : "WAITING", deviceX + 18, deviceY + 58, 18);
     this.label(
-      live ? `${formatNumber(soilRaw)} ADC` : "NO DATA",
+      this.telemetry && hasSoilReading ? `${formatNumber(soilRaw)} ADC` : "NO DATA",
       deviceX + 18,
       deviceY + 86,
       13,
@@ -449,7 +333,13 @@ class FieldCanvas {
     context.fillStyle = "#fffdf5";
     context.fillRect(16, 16, 125, 38);
     context.strokeRect(16, 16, 125, 38);
-    this.label(isDry ? "SOIL: DRY" : "SOIL: MOIST", 78, 41, 12, "center");
+    this.label(
+      !hasSoilReading ? "SOIL: WAIT" : isDry ? "SOIL: DRY" : "SOIL: MOIST",
+      78,
+      41,
+      12,
+      "center",
+    );
   }
 }
 
@@ -462,7 +352,9 @@ function renderTelemetry(telemetry, log = true) {
   const soilRaw = Number(readings.soilRaw);
   const isDry = soilRaw >= dryThreshold;
   const rssi = Number(telemetry.wifiRssi);
-  lastTelemetryAt = Date.now();
+  const receivedAt = Date.parse(telemetry.receivedAt);
+  lastTelemetryAt = Number.isFinite(receivedAt) ? receivedAt : Date.now();
+  const isFresh = Date.now() - lastTelemetryAt <= 12_000;
 
   elements.connection.classList.add("is-live");
   elements.connectionLabel.textContent = "ONLINE — RECEIVING DATA";
@@ -497,7 +389,7 @@ function renderTelemetry(telemetry, log = true) {
   elements.signalSummary.textContent = describeSignal(rssi);
 
   setOverallStatus(readings, outputs);
-  fieldCanvas.update(telemetry);
+  fieldCanvas.update(telemetry, isFresh);
 
   for (const element of [
     elements.temperature,
@@ -510,6 +402,12 @@ function renderTelemetry(telemetry, log = true) {
 
   if (log) {
     addLog("ESP32 telemetry received", telemetry.receivedAt);
+  }
+
+  if (!isFresh) {
+    markOffline(
+      `Last ESP32 transmission: ${new Date(lastTelemetryAt).toLocaleTimeString()}.`,
+    );
   }
 }
 
@@ -524,6 +422,7 @@ function markOffline(reason = "No recent transmission") {
   elements.overallStatus.querySelector("span").textContent = "!";
   elements.overallStatus.querySelector("p").innerHTML =
     "<strong>ESP32 connection interrupted</strong>Check Wi-Fi, the server address, and power to the board.";
+  fieldCanvas.setConnected(false);
 }
 
 async function loadState() {
