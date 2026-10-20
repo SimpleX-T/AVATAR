@@ -1,18 +1,40 @@
-# Night Garden
+# Project AVATAR
 
-Night Garden is an off-grid agricultural monitoring and protection system built
-around an ESP32. The repository now includes:
+**Agricultural Vision and Automated Technology for Adaptive Response**
 
-- ESP32 firmware with simulation and hardware modes;
-- Wi-Fi telemetry and remote-command support;
-- a zero-dependency Node.js server;
-- local JSONL telemetry storage; and
-- a responsive realtime field-station dashboard.
+Project AVATAR is an IoT-based, off-grid **greenhouse farming research
+prototype** for soil, climate, and atmospheric data collection, local
+irrigation/fire response, and remote data access. It is a working system
+prototype, not only a sensor-to-actuator demonstration. Raw probe registers
+and gas readings remain research measurements until calibrated and validated.
 
-You can run the complete network with only an ESP32, USB cable, computer, and
-Wi-Fi connection. Start with [the connection guide](docs/CONNECTIONS.md).
+The current physical build uses a 38-pin ESP32 and a 5S battery already stepped
+down to 12 V, then to 5 V by a second buck converter. It includes a five-probe
+RS-485 multi-parameter soil sensor, capacitive soil-moisture sensor, DHT11,
+MQ-6 gas sensor, fire sensor,
+servo, two pumps, an L298N board, an XY-MOS board, and the smaller pump's
+included MOS controller. The soil-probe supplier has provided a **generic**
+Modbus manual; its settings and enabled measurements still need verification
+against this exact unit. Child sensor nodes and their LoRa/Wi-Fi links are
+future expansion; sensors are wired to the head-node in this prototype.
 
-## Quick start with no sensors
+**Implemented now:** modular ESP32 firmware with the calibrated capacitive sensor,
+DHT11, divided MQ-6 inputs, read-only RS-485 soil registers, independent
+bounded fire/water responses, and two disabled-by-default L298N pump outputs;
+a Node.js telemetry server and a browser dashboard; and optional server-side
+private ThingSpeak publishing/reading, with two private research channels
+configured locally; protected first-boot Wi-Fi setup, NVS-stored credentials
+and farm profile, and a 12-hour printable research report. Provisioning
+compiles but awaits physical commissioning. **Planned, not yet integrated:** durable
+offline buffering,
+QR-based claiming, remote child nodes, and physical pump
+commissioning. See [the confirmed prototype architecture](docs/confirmed-system-architecture.md),
+[the connection guide](docs/CONNECTIONS.md), and [the development roadmap](docs/production-roadmap.md).
+For cloud setup, use [the ThingSpeak guide](docs/thingspeak-setup.md).
+The [greenhouse setup and report guide](docs/greenhouse-onboarding-and-report.md)
+separates compiled features from the hardware commissioning still required.
+
+## Run the current software prototype
 
 1. Start the server:
 
@@ -28,7 +50,9 @@ Wi-Fi connection. Start with [the connection guide](docs/CONNECTIONS.md).
    cp include/secrets.example.h include/secrets.h
    ```
 
-3. Set your Wi-Fi name, password, and computer LAN IP in `secrets.h`.
+3. Set the computer LAN URL and device token in `secrets.h`. Home Wi-Fi is
+   entered through the protected ESP32 setup page after flashing, not stored
+   in this source file.
 
 4. Upload and monitor:
 
@@ -37,68 +61,123 @@ Wi-Fi connection. Start with [the connection guide](docs/CONNECTIONS.md).
    pio device monitor
    ```
 
-5. Open `http://localhost:8787`.
+5. On first boot, read the generated setup Wi-Fi name and password at 115200
+   baud; label the unit, then visit `http://192.168.4.1` from a phone on that
+   Wi-Fi. After connecting the ESP32 to the home network, open
+   `http://localhost:8787` on the server computer to name the greenhouse.
 
-Simulation mode is enabled by default:
+Without Privy credentials, the server stays in local demonstration mode. This
+is still a developer workflow. The farm profile and Wi-Fi provisioning are
+implemented but not yet commissioned on physical hardware. QR claiming and
+device-to-account ownership are not implemented.
+
+## Enable operator sign-in with Privy
+
+The current dashboard can use Privy email one-time passcodes. This is not yet
+connected to device claiming or farm ownership; those are separate product
+work still to design and implement.
+
+1. Create a Privy app at `https://dashboard.privy.io`.
+2. Enable **Email** under Authentication → Login methods.
+3. Install and build the two SDK surfaces:
+
+   ```bash
+   cd server
+   npm install
+   npm --prefix client install
+   npm run build:auth
+   ```
+
+4. Create the local environment file:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+5. Add `PRIVY_APP_ID`, `PRIVY_APP_SECRET`, and a strong
+   `PROJECT_AVATAR_DEVICE_TOKEN`, then restart `npm start`.
+
+The App ID is intentionally exposed to the browser. The App Secret remains
+server-only and must never be committed. Browser users receive an HTTP-only,
+same-site session after the server verifies their Privy access token. The ESP32
+continues to authenticate separately with its device token.
+
+The current firmware settings are in `code/include/config.h`. Sensor inputs
+are enabled in the integrated target; pump/servo outputs remain disabled there
+until that target is commissioned. A successful build does not establish hardware
+readiness. MQ-6 AO/DO and MAX485 RO must have their 5 V outputs divided or level
+shifted before the ESP32.
 
 ```cpp
-constexpr bool SIMULATION_MODE = true;
-constexpr bool ENABLE_PHYSICAL_OUTPUTS = false;
+constexpr bool SIMULATION_MODE = false;
+constexpr bool ENABLE_PUMP_OUTPUTS = false;
+constexpr bool ENABLE_SERVO_OUTPUT = false;
+constexpr bool ENABLE_FIRE_SENSOR_INPUT = true;
+constexpr bool ENABLE_SOIL_MOISTURE_INPUT = true;
 ```
 
-That combination prevents physical actuator control while you build the network
-and dashboard.
+The pump and servo flags are separate. Set each to `true` only after its
+electrical and mechanical commissioning steps pass.
 
-## What was already present
+## Current prototype status
 
-- A PlatformIO project targeting the `esp32dev` Arduino board.
-- Pin assignments for PIR, three flame sensors, DHT11, LDR, soil sensor,
-  buzzer, LED, fire servo, fire pump, and fire valve.
-- Working LED and fire pump/valve drivers.
-- Empty placeholders for the remaining drivers and feature modules.
+- The firmware targets an ESP32 DevKit. Its telemetry uses one fire sensor,
+  one capacitive soil sensor, DHT11, MQ-6 and raw pH/EC/N/P/K registers.
+- Firmware telemetry goes to the Node server over the current LAN HTTP/WebSocket
+  path. When configured, the server writes two private ThingSpeak channels and
+  the dashboard reads their recorded feeds through a protected server route.
+- The local telemetry interval is 60 seconds. Networking runs in a separate
+  ESP32 task, so a slow HTTP request does not pause the faster local fire and
+  pump control loop.
+- The pin map in `code/include/pins.h` follows the proven bench inputs. The
+  integrated target has not yet been flashed and re-tested on the assembled
+  board. L298N ENA/ENB stay jumpered on this particular build; GPIO18/23 are
+  not used for the pump driver.
 
-## How the completed firmware is organized
+## Current firmware organization
 
 - `include/`: project-wide pins, tunable settings, data types, and system state.
 - `src/drivers/`: direct hardware actions. Drivers do not make farm decisions.
-- `src/modules/`: climate, irrigation, motion, and fire control rules.
+- `src/modules/`: climate/MQ-6, RS-485 soil probe, irrigation, and fire rules.
 - `src/utils/`: rollover-safe timing and readable serial status output.
 - `src/network/`: Wi-Fi, HTTP telemetry, and remote-command polling.
 - `src/main.cpp`: initializes everything and gives every module a short turn.
 
-This separation matters: changing a pump pin should not change irrigation
-policy, and changing an irrigation threshold should not change the pump driver.
+The separation lets sensor drivers, farm rules, communications, and the
+dashboard evolve independently as the prototype expands.
 
 ## Safety decisions
 
-1. No `delay()` calls are used. A delay in irrigation must not pause fire scans.
-2. Every fluid operation has a maximum runtime.
-3. Fire response stops irrigation and chemigation and has highest priority.
-4. A 30-second fire-response timeout creates a lockout that requires inspection
-   and a manual `r` command before another response can start.
-5. Chemigation is not triggered by soil moisture. It requires the serial `c`
-   command because chemical type, crop, concentration, and schedule are not
-   known to this prototype.
-6. Simulation mode skips hardware initialization, and actuator drivers enforce
-   a separate physical-output kill switch.
+1. Local safety decisions must continue to work without internet access.
+2. Pump operation needs explicit duration limits, cooldowns, and an emergency
+   stop before real loads are used.
+3. Fire response takes priority over irrigation, but the current hardware has
+   one fire sensor and no independent valves; it cannot provide zoned fire
+   suppression.
+4. Pump PWM is a control input, not a verified measure of water flow or spray
+   force. Calibrate using the actual pump, driver, supply, hose, and nozzle.
+5. Dashboard commands must never be the only protection against unsafe local
+   operation.
+6. Pump and servo outputs are disabled until their wiring, current limits,
+   physical emergency stop, and mechanical range are checked.
 
-## Pin map
+## Present firmware pin configuration
+
+These assignments follow the working bench wiring; verify them on the final board.
 
 | Function | ESP32 GPIO |
-|---|---:|
-| PIR motion sensor | 14 |
-| Flame sensors (left/centre/right) | 34 / 35 / 32 |
-| Fire servo | 18 |
-| Fire pump / valve | 25 / 21 |
-| Soil-moisture sensor | 33 |
-| Irrigation pump / valve | 22 / 23 |
-| Chemigation pump / valve | 19 / 17 |
-| DHT11 | 4 |
-| LDR | 36 |
-| Buzzer / status LED | 26 / 27 |
+| --- | ---: |
+| RS-485 RX, TX, direction | 16, 17, 4 |
+| DHT11, fire sensor | 13, 34 |
+| Capacitive moisture, MQ-6 digital, MQ-6 analog | 35, 36, 39 |
+| Fire pump L298N IN1, IN2 (ENA jumper fitted) | 25, 26 |
+| Irrigation pump L298N IN3, IN4 (ENB jumper fitted) | 32, 33 |
+| Servo, external status LED | 14, 22 |
 
-GPIO 34, 35, and 36 are input-only pins, which is appropriate for the analogue
-sensors connected to them.
+GPIO 34-39 are input-only. Check ADC availability and Wi-Fi constraints, sensor
+voltage ranges, board pinout, and driver requirements before attaching analog
+sensors or outputs. The soil probe uses RS-485 through the MAX485 board; its
+protocol and register map still need confirmation.
 
 ## Serial controls
 
@@ -109,30 +188,42 @@ pio device monitor
 ```
 
 - `s`: print status now
-- `c`: start one five-second chemigation dose
-- `x`: stop irrigation, chemigation, and deterrent
-- `r`: clear the fire-response safety lockout after inspection
+- `x`: stop both pumps and latch safety lockouts
+- `r`: clear safety lockouts after inspection when fire detection is clear
 - `?`: print command help
 
-In simulation mode, field scenarios are controlled from the dashboard rather
-than through the chemigation serial command.
+In simulation mode, field scenarios are controlled from the dashboard.
 
 ## Before connecting pumps
 
-Do not power a pump, valve, or servo from an ESP32 GPIO. Use properly rated
-MOSFET drivers, flyback protection for inductive loads, a shared ground, and a
-separate actuator supply. Confirm whether each relay/MOSFET board is active-high;
-the current driver assumes `HIGH = on`.
+Do not power a pump, valve, or servo from an ESP32 GPIO. Confirm the motor
+driver's supported motor type, voltage/current limits, PWM behavior, and
+protection before connecting either pump. Use suitable fusing, suppression for
+inductive loads, correctly sized wiring, a separate actuator supply, and a
+shared logic ground where required by the driver. Bench-test with the pump
+disconnected first. The pump and nozzle arrangement must be tested for actual
+flow and reach; PWM percentage alone does not establish those values.
+The 5S battery's discharge protection must also be confirmed; the existing
+12 V and 5 V bucks regulate voltage but do not by themselves protect its cells.
+Both pumps have spun directly at 3.3 V and 5 V, but their ratings and
+performance through the L298N are unverified. The L298N's two outputs share
+one `VS` motor-supply rail and it drops significant voltage under load; its
+`5V-EN` jumper commonly enables a logic regulator, **not a 5 V pump output**.
+The modular target keeps its outputs disabled pending on-board integration
+testing. The XY-MOS is not a servo position controller. A three-wire
+servo needs a separate regulated supply at its rated voltage (commonly around
+5 V), adequate peak current, common ground, and a GPIO position signal. See
+the [pump/driver evidence](docs/temu-pump-driver-research.md) and the
+[sensor-input-first wiring sequence](docs/esp32-paired-loop-bench-bringup.md).
 
 ## Calibration
 
-Update `include/config.h` after observing real serial readings:
-
-- `SOIL_DRY_THRESHOLD`: read the probe in the actual dry and wet soil.
-- `FLAME_DETECTED_THRESHOLD`: record readings with no flame and with a safe test
-  source at the intended distance.
-- `SERVO_LEFT`, `SERVO_CENTER`, `SERVO_RIGHT`: set safe mechanical limits before
-  attaching a loaded suppressant mechanism.
+Calibrate every sensor against its data sheet and measurements in the intended
+soil/air. Record units, range, sampling interval, location, and calibration
+date. Determine the fire sensor's output type and safe test method. Set servo
+limits mechanically before mounting the spray assembly. Do not label raw ADC
+values as NPK, EC, moisture percentage, gas concentration, or temperature
+without the appropriate conversion and calibration.
 
 ## Build
 
@@ -143,6 +234,10 @@ pio run
 
 ## Network security boundary
 
-The included server is for a trusted local network. Before internet deployment,
-add dashboard authentication, HTTPS, a production database, rate limiting, and
-unique rotated device credentials. Do not forward port `8787` from a router.
+Privy can protect browser access when configured, but the included file-backed
+server is still for development and demonstrations. ThingSpeak is configured
+for this prototype, but secure device claiming, account-to-device ownership,
+and a field-grade offline queue are not present yet. Before public deployment,
+add HTTPS, durable storage, rate limits,
+unique revocable device credentials, audit logging, ownership checks, and a
+documented recovery process. Do not forward port `8787` from a router.
