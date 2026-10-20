@@ -4,79 +4,107 @@
 
 ## Platform
 
-web
+ESP32 head-node, connected sensors and actuators, cloud telemetry service, and
+web dashboard. The current software prototype uses a local Node.js server; the
+planned remote data destination is ThingSpeak.
 
 ## Users
 
-The primary users are university lecturers and project examiners assessing a
-final-year embedded-systems project. They may not be familiar with modern
-dashboard conventions and need to understand the system from a quick glance,
-often on a laptop or projected screen.
-
-The student project team also uses the dashboard while developing and
-demonstrating the ESP32 system.
+The primary user is a farmer who needs to understand farm conditions and take
+appropriate action without needing technical expertise. The interface must
+also support low-literacy use: familiar terms, clear units, meaningful icons
+paired with words, large touch controls, and carefully tested language choices.
+The project team and agricultural advisers configure and evaluate the
+prototype.
 
 ## Product Purpose
 
-Night Garden demonstrates an off-grid, ESP32-based agricultural monitoring and
-protection system. The dashboard makes live environmental readings, device
-connectivity, simulated events, and system responses visible and understandable.
+Project AVATAR is a prototype of a smart IoT-based off-grid agriculture data
+collection, management, and protection system. It gathers useful soil,
+climate, and atmospheric readings, preserves and uploads them when connectivity
+is available, and performs bounded local actions where those actions are
+appropriate. Its broader direction is a head-node that can work with remote
+child sensor nodes; the current prototype uses wired components.
 
-Success means an examiner can identify what is being measured, whether the
-device is connected, whether conditions are normal, and what each demonstration
-control does without explanation from the interface designer.
+The initial physical demonstration is a small 2 x 3 ft farm model. It uses one
+capacitive soil sensor, one fire sensor, two pumps, a servo, and candidate driver boards
+to explore local watering and fire-response behavior. It does not yet provide
+independent watering zones, as it has no valves and only one soil-moisture
+sensor.
 
-## Positioning
+## Product Outcome
 
-Night Garden connects a real ESP32 control architecture to a transparent
-teaching and demonstration interface. It presents the sensor-to-decision-to-
-actuator relationship rather than treating telemetry as detached analytics.
+A farmer should be able to identify recent soil and environmental conditions,
+see whether readings are current, understand what the system is doing, and
+control the farm with clear, safe actions. The system must distinguish local
+operation from cloud connectivity: internet loss may delay uploads but must not
+silently disable safe local behavior.
 
 ## Operating Context
 
-- Used during project development, live demonstrations, and academic defence.
-- Viewed on laptops, projectors, tablets, and phones.
-- Runs on a trusted local network with an ESP32, Node server, and browser.
-- Currently supports simulated telemetry because physical sensors and actuators
-  are not yet available.
+- Built and demonstrated as an off-grid-capable agriculture prototype.
+- Current hardware connects sensors to one 38-pin ESP32 head-node by wire.
+- Future child nodes may communicate with the head-node over LoRa or Wi-Fi.
+- The ESP32 currently sends its legacy telemetry to a local Node.js server.
+- ThingSpeak publishing, durable offline buffering, QR claiming, and farmer
+  device provisioning are planned, not implemented.
+- Data may be viewed on phones and computers, including in outdoor conditions.
 
-## Capabilities and Constraints
+## Current Components
 
-- Shows temperature, humidity, soil ADC, light, motion, fire, device mode, Wi-Fi
-  signal, and last contact time.
-- Queues simulation commands for the ESP32.
-- Receives realtime updates through Server-Sent Events.
-- Must remain understandable without familiarity with specialist UI patterns.
-- Must remain usable when JavaScript motion is disabled.
-- Must not imply that simulated readings are real field measurements.
+- A 5S battery stepped down by one buck to 12 V and a second buck to 5 V,
+  plus a 38-pin ESP32 development board.
+- Five-probe RS-485 soil sensor (label indicates EC, pH, and NPK options), capacitive soil-moisture sensor, and DHT11.
+- MQ-6 gas sensor, fire sensor, and LDR. PIR sensing was removed from this prototype.
+- Servo motor, two pumps (irrigation and fire), an L298N, an XY-MOS, and the
+  small pump kit's MOS controller. Driver allocation is not yet validated:
+  both pumps spun directly at 3.3 V and 5 V, but rated voltage/current and
+  performance through the L298N remain unknown.
 
-## Brand Commitments
-
-- Product name: Night Garden.
-- Clear, direct, student-project language.
-- Neo-brutalist visual style inspired by PostHog, GitReverse, printed technical
-  cards, and the user's supplied monochrome reference images.
-- Paper-like surfaces, strong black outlines, offset shadows, restrained color,
-  and purposeful HTML canvas motion.
-
-## Evidence on Hand
-
-- Working ESP32 simulation telemetry.
-- Working local server, command queue, and dashboard.
-- Real sensor and output state schema in the repository.
-- No real farm trial data, crop-yield evidence, or physical sensor measurements
-  are currently available and none should be fabricated.
+The two buck converters already provide the intended 12 V and 5 V rails.
+Solar charging is deferred until an appropriate 5S BMS is available. A generic
+supplier soil-probe manual has arrived, but its settings and measurements are
+not yet validated against this unit. Pump voltages/currents, module output
+voltages, and final pin assignments still
+need confirmation before wiring and firmware are treated as final. See [the
+confirmed prototype architecture](docs/confirmed-system-architecture.md).
 
 ## Product Principles
 
-1. Explain the system before decorating it.
-2. Show status in words as well as color.
-3. Keep the sensor-to-response relationship visible.
-4. Label simulation honestly.
-5. Preserve safe operation and explicit controls.
+1. Treat Project AVATAR as an agricultural system prototype, not merely a
+   dashboard or a sensor-to-actuator demo.
+2. Collect useful data with clear units, timestamps, sensor identity, location,
+   and calibration status.
+3. Keep local safety and bounded control working without internet.
+4. Show whether a reading is current, stale, missing, estimated, or simulated.
+5. Keep farmer controls understandable, direct, and difficult to trigger by
+   accident.
+6. Be honest about what is wired, measured, calibrated, simulated, or planned.
 
-## Accessibility & Inclusion
+## Device Setup Direction
 
-Use high contrast, large readable labels, visible keyboard focus, 44-pixel
-minimum touch targets, redundant status indicators, reduced-motion support, and
-layouts that remain clear on projectors and small screens.
+The intended setup starts from a visible QR code containing a setup URL and
+known device ID. After account verification, the farmer proves possession with
+a concealed one-time code supplied inside the box, identifies the farm, then
+provisions local Wi-Fi on the ESP32. The server associates the authenticated
+device with that farm. The visible QR carries no ownership proof or secret.
+
+## Evidence and Constraints
+
+- Existing local firmware/server/dashboard path is available for development.
+- The current firmware telemetry fields and pin map do not yet represent the
+  complete updated component list.
+- ThingSpeak, wireless child nodes, and an offline upload queue are not yet
+  implemented.
+- No farm-trial, crop-yield, or validated agronomic evidence is available; do
+  not present unmeasured benefits as proven results.
+- The one-sensor/two-pump/no-valve prototype cannot represent multi-zone
+  watering or independently controlled spray stations.
+
+## Accessibility and Inclusion
+
+Use plain language, consistent terms, readable text, large touch targets,
+strong contrast, visible focus, and status that never depends on color alone.
+Pair icons with short labels; test wording and symbols with intended users.
+Support reduced motion and clear offline/stale-data states. Avoid relying on
+technical abbreviations or raw sensor codes as the primary explanation.

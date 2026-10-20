@@ -1,17 +1,14 @@
-# Night Garden Design System
+# Project AVATAR Design System
 
 <!-- impeccable:design-schema 1 -->
 
 ## Visual World
 
-Night Garden is a printed field-control sheet brought to life: generated warm
-paper grain, hand-rendered studies of the project sensors and actuators, heavy
-black rules, offset ink shadows, block colors, technical annotations, and one
-live canvas illustration. It uses neo-brutalist clarity without becoming noisy
-or cryptic.
-
-The physical scene is a brightly lit classroom or projector screen during an
-academic defence. This forces a light-first interface with strong contrast.
+Project AVATAR is a farmer-facing field tool for an off-grid agriculture
+prototype. The interface should feel practical, calm, and legible in daylight
+on a phone, not like an examiner-only presentation. Keep the existing strong
+printed-control-sheet character, but use decoration only when it helps someone
+read farm conditions or operate the system.
 
 ## Surface Strategy
 
@@ -19,11 +16,11 @@ Mode: Operate.
 
 The reading order is:
 
-1. Is the ESP32 connected?
-2. Are field conditions normal?
-3. What are the exact readings and units?
-4. What can be demonstrated safely?
-5. What has happened recently?
+1. Is the farm unit working, and when did it last report?
+2. Are the displayed readings current and understandable?
+3. What is happening at the farm and at each sensor location?
+4. Is an automatic action active, and why?
+5. What can the farmer safely do next?
 
 ## Color Roles
 
@@ -40,10 +37,9 @@ always written in text and never communicated by color alone.
 
 ## Typography
 
-- Display and interface: a robust system monospace stack for the technical,
-  printed-card character.
-- Supporting prose: Georgia or another familiar serif for lecturer-friendly
-  reading.
+- Use highly legible type with familiar letterforms; avoid dense technical
+  monospace as the primary reading face.
+- Keep labels and instructions short, concrete, and easy to translate.
 - Readings use tabular numerals.
 - Body text is never below 16px; labels are never below 13px.
 
@@ -53,40 +49,35 @@ always written in text and never communicated by color alone.
 - Square or lightly rounded corners only where the reference language needs
   them.
 - Offset shadows use hard ink-like displacement.
-- The top of the page is an explicit system summary, not a decorative hero.
-- Metrics use different color fields but consistent internal anatomy.
-- Controls include a title and one-sentence consequence.
+- The first view foregrounds farm status, data freshness, and active actions.
+- Every measurement includes a human-readable name and unit; show sensor
+  location where known.
+- Use status words as well as color, with distinct states for offline, stale,
+  missing, simulated, and current readings.
+- Controls use familiar labels, clear consequences, and confirmation for
+  consequential actions; do not expose raw device commands as farmer controls.
 
 ## Motion
 
-The single authored moment is the live field canvas. It visualizes the system
-connection and telemetry: a signal travels from an ESP32 marker through a sensor
-line into a growing field trace. Licensed illustrated characters sit around the
-paper surface with slow, low-amplitude motion, giving the page life without
-competing with the readings. Motion pauses when the tab is hidden, stops when
-the canvas is offscreen, and becomes static under reduced-motion settings.
-
-Supporting motion is limited to:
-
-- a short status stamp when telemetry arrives;
-- articulated character details such as a bird wing and the farmer's glance;
-- a 120ms button press with offset-shadow movement; and
-- number updates highlighted by a brief paper-flash.
+Motion is secondary to timely, stable readings. Use brief feedback to show a
+new reading or a completed action; do not imply that animated data is live when
+the device is offline or stale. Respect reduced-motion settings and do not make
+motion the only way to communicate a state.
 
 ## Responsive Rules
 
-- Desktop/projector: summary metrics in one row, field canvas beside the written
-  interpretation, controls in a clear grid.
-- Tablet: two-column metrics and two-column controls.
-- Mobile: single-column reading order with no hidden core information.
+- Desktop: farm status, key measurements, sensor locations, and action history
+  are easy to scan together.
+- Tablet: preserve readable measurement groups and reachable controls.
+- Mobile: prioritize current status and next action; no essential reading or
+  alert is hidden in a wide table or decorative canvas.
 - Touch targets remain at least 44px.
-- A print stylesheet removes interactive controls and animation while retaining
-  readings, statuses, and timestamp.
+- Controls work with keyboard access.
 
 ## Accessibility
 
 - Contrast meets WCAG AA.
 - Keyboard focus is a 3px black outline with yellow offset.
 - Status has text, icon, and color.
-- Canvas includes an accessible written equivalent.
+- Charts and maps include accessible text equivalents and explicit units.
 - Reduced-motion mode removes looping animation.

@@ -1,9 +1,100 @@
-# Night Garden: Production Deployment Roadmap
+# Project AVATAR: Production Deployment Roadmap
+
+## Prototype implementation plan
+
+The production roadmap below is the longer-term direction. The immediate goal
+is to complete and validate the current 2 x 3 ft prototype with wired sensors,
+local control, and ThingSpeak data publishing. Do not build production cloud
+infrastructure ahead of confirming the sensor, power, and control behavior.
+
+### 1. Freeze the physical inventory and interfaces
+
+- Record exact model numbers and datasheets for the 38-pin ESP32, both buck
+  converters, five-probe RS-485 soil sensor, capacitive soil sensor, DHT11,
+  MQ-6, fire/LDR sensors, servo, pumps, L298N, XY-MOS, and the kit MOS board.
+- Confirm each sensor's interface, output voltage, units, warm-up needs,
+  accuracy, and safe sampling interval. In particular, identify whether the
+  RS-485 sensor's generic manual settings on this unit and the MAX485 voltage interface.
+- Establish the black pump's rated voltage and each pump's startup/stall current.
+  Confirm each candidate driver's terminals, trigger level, supply topology,
+  current capacity, PWM constraints, and protection. The existing two-L298N
+  firmware mapping is a blocked legacy assignment, not the final hookup.
+- Produce one reviewed as-built pin/power diagram from the proposed firmware
+  map. Legacy valve, chemigation, and three-flame firmware paths are removed.
+- Keep analog inputs on suitable ESP32 ADC pins and verify ADC behavior with
+  Wi-Fi active; protect ESP32 inputs from signals above 3.3 V.
+
+**Exit:** every component has a verified interface, power budget, pin, and
+bring-up test; no hardware is inferred from old source constants.
+
+### 2. Build reliable sensing and a useful data model
+
+- Add one driver and calibration record per actual sensor model.
+- Store named, unit-bearing values rather than exposing only raw ADC values.
+- Attach device ID, sensor ID/location, observation timestamp, firmware version,
+  validity/calibration status, and operating mode to readings.
+- Sample each sensor on its own appropriate cadence; aggregate into a slower
+  upload batch. The local telemetry interval is now 60 seconds.
+- Define a bounded persistent offline queue, retry backoff, duplicate handling,
+  and behavior when storage fills. Local sensing and safety control must not
+  block while uploads retry.
+- Configure ThingSpeak fields and upload cadence only after deciding the
+  measurements, units, and minimum useful dashboard history.
+
+**Exit:** calibrated bench readings are plausible, timestamped, and retained
+across a controlled Wi-Fi outage and restart.
+
+### 3. Commission the two-pump demonstration safely
+
+- Treat the one capacitive sensor as one watering zone. With no valves, the
+  prototype cannot select among multiple branches/nozzles.
+- Calibrate dry/wet thresholds in the intended soil and use hysteresis,
+  confirmation time, maximum run time, cooldown, and manual emergency stop.
+- Test each pump separately with its intended supply, hose, and nozzle. Record
+  flow and coverage at a range of PWM settings; do not equate duty cycle with
+  spray force or delivered volume.
+- Define fire-response priority and failure behavior. Test the fire sensor,
+  servo sweep limits, pump activation, and irrigation shutdown without a real
+  hazardous flame.
+- Do not add hot-weather air misting to the control logic until its pump/nozzle,
+  available water, and safe trigger conditions are defined.
+
+**Exit:** supervised bench tests prove independent outputs, bounded operation,
+emergency stop, and safe recovery after reset or power loss.
+
+### 4. Deliver the farmer-facing data experience
+
+- Put current farm status, last update time, and active actions before technical
+  details.
+- Present confirmed soil nutrients, pH, EC, moisture, climate, light, gas,
+  fire, and motion with clear units, sensor location, and freshness.
+- Make offline, stale, missing, and uncalibrated readings explicit.
+- Use plain labels, familiar controls, and tested icons; pair icons with words.
+- Do not expose raw API/device commands as routine farmer actions.
+
+**Exit:** a novice can tell whether data is current, what it means, and which
+actions are safe without help from the developer.
+
+### 5. Add claim, Wi-Fi provisioning, and remote nodes in stages
+
+- Define a one-time QR claim credential bound to a pre-registered device ID;
+  require account verification and record farm ownership server-side.
+- Provision Wi-Fi using a temporary authenticated setup mode on the head-node;
+  never ask the farmer to place home Wi-Fi credentials in a public QR code.
+- Keep user credentials, device credentials, and ThingSpeak write credentials
+  separate. Use a unique, revocable device credential and avoid exposing a
+  channel write key in the browser.
+- Add child nodes only after the wired head-node is stable. Choose LoRa versus
+  Wi-Fi from range, power, terrain, data rate, and deployment tests; define
+  node identity, pairing, battery/power, freshness, and loss behavior first.
+
+**Exit:** a test account claims only its device, provisions it without developer
+access, and sees fresh readings attributed to the correct farm and sensor.
 
 ## Objective
 
-Evolve the current local-network prototype into a secure, remotely operated
-agricultural platform where:
+After validating the prototype plan above, evolve the current local-network
+system into a secure, remotely operated agricultural platform where:
 
 - a field unit keeps the farm safe even without internet;
 - each ESP32 has a unique, revocable identity;
@@ -148,8 +239,8 @@ Deliverables:
 
 - Assign an immutable device ID at manufacture/enrolment.
 - Give each unit a unique credential; prefer device certificates when practical.
-- Ship a short-lived, single-use claim code or QR code separately from the
-  permanent credential.
+- Put a short-lived, single-use claim code or equivalent non-secret lookup in
+  the QR flow; never treat the printed device ID as proof of ownership.
 - Implement claim states:
   `unclaimed`, `claim-started`, `verified`, `provisioned`, `ready`, `revoked`.
 - Prevent double claims and make ownership transfer an explicit audited flow.
@@ -282,14 +373,15 @@ Exit criteria:
 Flow:
 
 1. Explain the outcome and prerequisites.
-2. Create/verify the farmer account.
-3. Create or join a farm.
-4. Claim the physical device using QR/code.
-5. Guide internet setup with explicit diagnostic states.
-6. Verify device identity and provisioning.
-7. Wait for fresh telemetry from that exact device.
-8. Explain the first live farm state in plain language.
-9. Run an optional safe commissioning command and await `APPLIED`.
+2. Scan the QR for a known, unclaimed device and explain what the code does.
+3. Create/verify the farmer account and create or join a farm.
+4. Collect the minimum useful farm profile (such as farm type and approximate
+   location); request phone number only when a defined feature needs it.
+5. Verify the claim and record device-to-farm ownership on the server.
+6. Guide local Wi-Fi provisioning with explicit diagnostic states.
+7. Wait for fresh telemetry from that exact device and its configured sensors.
+8. Explain the first farm readings and their freshness in plain language.
+9. Run an optional safe commissioning check and await device acknowledgement.
 10. Confirm readiness, notification choices, and next action.
 
 Requirements:
@@ -356,18 +448,23 @@ Scale only after safety, reliability, and support thresholds are met.
 
 ### Now
 
-- Preserve the current local demonstration.
-- Add durable command lifecycle semantics and truthful freshness.
-- Write schemas, roles, safety invariants, and architecture decisions.
-- Containerize the server and introduce PostgreSQL.
+- Freeze actual hardware models, wiring, power, and motor-driver capabilities.
+- Verify the revised single-fire-sensor, two-pump firmware pin map on the bench.
+- Define calibrated sensor fields and implement measured sampling intervals.
+- Implement local safety rules and pump tests before enabling physical outputs.
+- Add offline retention and a measured ThingSpeak upload cadence to the current
+  60-second local telemetry schedule.
+- Make the dashboard truthful about units, sensor locations, stale data, and
+  which functionality is not yet available.
 
 ### Next
 
-- Add authentication and tenant isolation.
-- Add the device registry and single-use claiming.
-- Deploy staging over HTTPS.
-- Make ESP32 operation offline-safe and commands expiring/idempotent.
-- Build commissioning onboarding.
+- Complete secure account/device claiming and Wi-Fi provisioning.
+- Add staged child-node support after the wired head-node is stable.
+- Move from ThingSpeak prototype publishing to a production service only when
+  retention, authorization, and fleet needs justify it.
+- Deploy staging over HTTPS and introduce durable multi-user storage.
+- Add expiring/idempotent remote commands and commissioning onboarding.
 
 ### Later
 
@@ -379,7 +476,7 @@ Scale only after safety, reliability, and support thresholds are met.
 
 ## Definition of production-ready
 
-Night Garden is production-ready only when a farmer can remotely understand and
+Project AVATAR is production-ready only when a farmer can remotely understand and
 control an authorized farm while the field unit remains safe during loss,
 duplication, delay, stale data, invalid input, compromised credentials, and
 cloud unavailability.

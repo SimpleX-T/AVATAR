@@ -12,6 +12,42 @@ The worst onboarding optimizes completion of the onboarding UI rather than achie
 
 For a connected-farm product, activation is not “account created” or “device code entered.” A credible first value event is: **the farmer pairs an authenticated field unit, sees a fresh reading that the server can attribute to it, and understands whether the farm is safe**. A stronger commissioning event adds a safe test command with a device acknowledgement.
 
+## Application to Project AVATAR
+
+Project AVATAR is an off-grid agriculture data collection, management, and
+protection prototype. Its intended first-use flow begins with a QR code on a
+known head-node, followed by farmer/farm setup, local Wi-Fi provisioning, and
+verification that fresh readings belong to that device. The current local
+dashboard and firmware do not yet implement this claim flow or ThingSpeak.
+
+Treat the visible box QR as a URL plus public device ID, not authentication.
+A device ID may be copied; a concealed one-time code supplied inside the box
+and a short-lived server claim session provide possession proof for this
+prototype. The server should record the authenticated account-to-farm-to-device
+relationship. Keep the human account, device credential, Wi-Fi password, and
+ThingSpeak write credential separate. Never encode home Wi-Fi credentials or a
+permanent device secret in a visible QR code.
+
+Ask for email to verify the account and request phone only if a chosen alert or
+recovery feature needs it. Ask for approximate farm location and farm type only
+when they have a stated use in interpreting or organizing readings; allow the
+farmer to understand why each is requested. Farm profile fields must not be
+treated as a substitute for sensor calibration or agronomic advice.
+
+After account and farm setup, guide the farmer through temporary local Wi-Fi
+provisioning of the head-node. Show separate states for browser connection,
+device Wi-Fi connection, cloud upload, last device contact, and freshness of
+each sensor reading. A unit can be locally operational while the internet is
+down; do not collapse these into one “online” label. Make setup resumable and
+include a manual device-code path for a damaged or inaccessible QR.
+
+The dashboard should be usable by farmers with varied literacy and familiarity
+with smartphones: short everyday labels, units next to values, icons paired
+with text, large touch targets, and concise recovery steps. Test translations,
+symbols, and alert wording with intended users rather than assuming one set of
+icons or colors is universal. Safety-critical status and controls must remain
+understandable without animation, color perception, or technical shorthand.
+
 ## What strong onboarding does
 
 ### 1. Starts with the user's outcome and minimizes time to value
@@ -53,7 +89,7 @@ Azure’s Device Provisioning Service separates registration (establishing ident
 **Implication:** pairing should be modeled as explicit states, not a spinner:
 
 1. Identify user and selected farm.
-2. Claim the physical unit using a short-lived, single-use QR/code or authenticated installer flow.
+2. Claim the physical unit using its public QR identity, concealed one-time code, and an expiring server claim session.
 3. Verify the unit’s cryptographic identity.
 4. Provision tenant/farm configuration with least privilege.
 5. Verify internet/cloud connection.
@@ -159,43 +195,43 @@ Experiments must protect trust and safety:
 
 ## Failure modes (“worst onboarding”)
 
-| Failure | Why it fails | Better rule |
-|---|---|---|
-| Mandatory generic slide carousel | Delays value; lacks task context | Preview real value; teach contextually; allow skip |
-| Account wall before any credible need | Demands commitment before trust | Allow preview/demo where safe; ask when persistence/ownership is needed |
-| Asking every profile question up front | Increases effort and collects stale data | Ask minimum required now; progressively profile |
-| Bulk permissions at launch | Purpose is unclear and refusals become likely | Prime and request at the moment of need |
-| Decorative progress metaphor only | Users cannot estimate remaining work | Use explicit step count/name and saved checkpoint |
-| Empty dashboard after “success” | Completion yields no orientation or proof | Seed relevant examples or lead directly to first real outcome |
-| Spinner during pairing | Hides state, timeout, and remedy | Expose pairing stages, elapsed state, safe retry, diagnostics |
-| “Connected” from stale/default data | Misrepresents operational safety | Show data freshness, device heartbeat, and server/browser states separately |
-| “Command sent” when merely queued | Conflates intent with physical execution | Show queued → delivered → acknowledged → applied/failed |
-| Errors that erase prior input | Punishes recovery | Preserve valid data, focus/announce error summary, explain fix |
-| No skip, save, back, or later path | Traps users and causes abandonment | Support safe escape, checkpoint, resume, and help |
-| Preselected consent / asymmetric decline | Manipulates consent | Neutral choices, no default opt-in, plain consequences |
-| Success confetti without evidence | Emotion substitutes for verification | Celebrate only after a verified result; show evidence and next action |
-| One happy-path flow for all roles | Installer, owner, and worker needs differ | Branch by job, capability, and progress; keep authorization explicit |
-| Optimizing tour completion | Improves a proxy while value may fall | Optimize time to verified value and downstream retention |
+| Failure                                  | Why it fails                                  | Better rule                                                                 |
+| ---------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------- |
+| Mandatory generic slide carousel         | Delays value; lacks task context              | Preview real value; teach contextually; allow skip                          |
+| Account wall before any credible need    | Demands commitment before trust               | Allow preview/demo where safe; ask when persistence/ownership is needed     |
+| Asking every profile question up front   | Increases effort and collects stale data      | Ask minimum required now; progressively profile                             |
+| Bulk permissions at launch               | Purpose is unclear and refusals become likely | Prime and request at the moment of need                                     |
+| Decorative progress metaphor only        | Users cannot estimate remaining work          | Use explicit step count/name and saved checkpoint                           |
+| Empty dashboard after “success”          | Completion yields no orientation or proof     | Seed relevant examples or lead directly to first real outcome               |
+| Spinner during pairing                   | Hides state, timeout, and remedy              | Expose pairing stages, elapsed state, safe retry, diagnostics               |
+| “Connected” from stale/default data      | Misrepresents operational safety              | Show data freshness, device heartbeat, and server/browser states separately |
+| “Command sent” when merely queued        | Conflates intent with physical execution      | Show queued → delivered → acknowledged → applied/failed                     |
+| Errors that erase prior input            | Punishes recovery                             | Preserve valid data, focus/announce error summary, explain fix              |
+| No skip, save, back, or later path       | Traps users and causes abandonment            | Support safe escape, checkpoint, resume, and help                           |
+| Preselected consent / asymmetric decline | Manipulates consent                           | Neutral choices, no default opt-in, plain consequences                      |
+| Success confetti without evidence        | Emotion substitutes for verification          | Celebrate only after a verified result; show evidence and next action       |
+| One happy-path flow for all roles        | Installer, owner, and worker needs differ     | Branch by job, capability, and progress; keep authorization explicit        |
+| Optimizing tour completion               | Improves a proxy while value may fall         | Optimize time to verified value and downstream retention                    |
 
 ## Evidence-to-rule table for a reusable skill
 
-| Evidence | Skill rule |
-|---|---|
-| Android: separate upfront essentials from contextual learning | Classify every step as required-before-value, contextual, optional, or removable |
-| Android: collect only critical information | Default to minimum viable fields and justify each required input |
-| Android/Apple: permission priming at time of need | Never batch permissions; explain immediate benefit, then invoke native request |
-| Android: skip/resume and familiar progress | Long flows must expose progress, back, save/exit, and resume |
-| GOV.UK: completion spans real start/end and includes failures | Define the user transaction and verified completion before designing screens |
-| GOV.UK: confirmation is explicit | End with evidence of completion and an actionable next step |
-| Intercom: behavior/segment-based tours and useful empty states | Trigger education from context and behavior; never show a tour to everyone by default |
-| Amplitude case study: blank demos and unclear setup caused friction | Use relevant templates/examples and prescriptive next actions without faking live data |
-| WCAG: order, labels, errors, status, targets, accessible auth | Treat WCAG 2.2 AA as a flow constraint and test each state, not only static screens |
-| FTC: sneaking and interface interference undermine choice | Reject hidden terms, preselection, asymmetric controls, obstruction, and fake urgency |
-| Azure/AWS: device identity precedes provisioning | Separate human auth, claim authorization, device attestation, provisioning, and commissioning |
-| Azure/AWS: unique credentials and revocation | Use short-lived claims and per-device permanent credentials with rotation/revocation |
-| Connected system semantics | Never collapse browser, cloud, gateway, device, sensor, and actuator state into one “online” flag |
-| GOV.UK + product analytics | Measure full-funnel completion, verified value, errors/recovery, retention, and qualitative evidence |
-| Ethical experimentation | Experiment on clarity/friction, not safety, consent deception, or required disclosure |
+| Evidence                                                            | Skill rule                                                                                           |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Android: separate upfront essentials from contextual learning       | Classify every step as required-before-value, contextual, optional, or removable                     |
+| Android: collect only critical information                          | Default to minimum viable fields and justify each required input                                     |
+| Android/Apple: permission priming at time of need                   | Never batch permissions; explain immediate benefit, then invoke native request                       |
+| Android: skip/resume and familiar progress                          | Long flows must expose progress, back, save/exit, and resume                                         |
+| GOV.UK: completion spans real start/end and includes failures       | Define the user transaction and verified completion before designing screens                         |
+| GOV.UK: confirmation is explicit                                    | End with evidence of completion and an actionable next step                                          |
+| Intercom: behavior/segment-based tours and useful empty states      | Trigger education from context and behavior; never show a tour to everyone by default                |
+| Amplitude case study: blank demos and unclear setup caused friction | Use relevant templates/examples and prescriptive next actions without faking live data               |
+| WCAG: order, labels, errors, status, targets, accessible auth       | Treat WCAG 2.2 AA as a flow constraint and test each state, not only static screens                  |
+| FTC: sneaking and interface interference undermine choice           | Reject hidden terms, preselection, asymmetric controls, obstruction, and fake urgency                |
+| Azure/AWS: device identity precedes provisioning                    | Separate human auth, claim authorization, device attestation, provisioning, and commissioning        |
+| Azure/AWS: unique credentials and revocation                        | Use short-lived claims and per-device permanent credentials with rotation/revocation                 |
+| Connected system semantics                                          | Never collapse browser, cloud, gateway, device, sensor, and actuator state into one “online” flag    |
+| GOV.UK + product analytics                                          | Measure full-funnel completion, verified value, errors/recovery, retention, and qualitative evidence |
+| Ethical experimentation                                             | Experiment on clarity/friction, not safety, consent deception, or required disclosure                |
 
 ## Practical review checklist
 
@@ -215,4 +251,3 @@ Before shipping any onboarding:
 12. Are analytics minimal, documented, privacy-aware, and focused on real outcomes?
 13. Are experiments guarded against safety, trust, accessibility, and support regressions?
 14. Has the flow been observed with representative users, including novices and assisted users?
-
