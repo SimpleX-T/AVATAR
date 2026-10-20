@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f0e6">
+  <title>Project AVATAR — Project Defence</title>
+  <link rel="stylesheet" href="/slide/slides.css">
+</head>
+<body>
+  <header class="toolbar">
+    <a href="/" class="brand"><b>AV</b><span>Project AVATAR presentation</span></a>
+    <div>
+      <button id="presentButton" type="button">Present</button>
+      <a href="/slide/project-avatar-project-defence.pdf" download>Download PDF</a>
+    </div>
+  </header>
+
+  <main class="deck" id="deck">
+    <section class="slide title-slide" data-title="Title">
+      <div class="title-main">
+        <p class="project-name">PROJECT AVATAR</p>
+        <h1>Agricultural Vision and Automated Technology for Adaptive Response</h1>
+        <p class="topic">Off-Grid, IoT-Enabled Smart Agricultural Management and Protection System</p>
+        <p class="submission">A B.Sc. project submitted in partial fulfilment of the requirements for the award of the Bachelor of Science degree in Computer Science.</p>
+        <p class="school"><b>Department of Computer Science</b><br>University of Nigeria, Nsukka</p>
+      </div>
+      <div class="title-people">
+        <h2>Prepared and presented by</h2>
+        <table>
+          <tbody>
+            <tr><td>Nfiaji Okanandu Edwin</td><td>2022/245849</td></tr>
+            <tr><td>Ndubuisi Mark Tochukwu</td><td>2022/244236</td></tr>
+            <tr><td>Nduka Anthony Annaelechukwu</td><td>2023/256579</td></tr>
+          </tbody>
+        </table>
+        <div class="supervisor"><b>Project Supervisor</b><span>Dr. (Mrs.) Asogwa</span></div>
+        <time>July 2026</time>
+      </div>
+      <span class="page">1 / 10</span>
+    </section>
+
+    <section class="slide" data-title="Statement of the problem">
+      <h2>Statement of the problem</h2>
+      <p class="lead">Many small farms still depend on the farmer being physically present.</p>
+      <ul class="plain-list">
+        <li>Farm conditions may change between visits.</li>
+        <li>Water may be applied without current soil information.</li>
+        <li>Fire or unusual movement may be noticed too late.</li>
+        <li>Separate devices need separate power supplies and controls.</li>
+        <li>Grid electricity and internet access may be unreliable.</li>
+      </ul>
+      <p class="summary">The problem is the absence of one small, off-grid system that can monitor the farm and coordinate these responses.</p>
+      <span class="page">2 / 10</span>
+    </section>
+
+    <section class="slide" data-title="Past solutions">
+      <h2>Past solutions and their limitations</h2>
+      <table class="literature">
+        <thead><tr><th>Previous work</th><th>What it addressed</th><th>Limitation</th></tr></thead>
+        <tbody>
+          <tr><td>García et al. (2020)</td><td>Reviewed sensors and IoT for irrigation.</td><td>No integrated management and protection prototype.</td></tr>
+          <tr><td>Vallejo-Gómez et al. (2023)</td><td>Reviewed smart-irrigation systems.</td><td>Focused mainly on irrigation.</td></tr>
+          <tr><td>Pereira et al. (2023)</td><td>Built ESP32 irrigation with a dashboard.</td><td>No off-grid power or fire response.</td></tr>
+          <tr><td>Udurume et al. (2025)</td><td>Developed networked fire monitoring.</td><td>Fire monitoring was separate from farm management.</td></tr>
+        </tbody>
+      </table>
+      <p class="source-line">The gap is integration: previous studies demonstrate useful parts, but not all the selected functions in one off-grid controller.</p>
+      <span class="page">3 / 10</span>
+    </section>
+
+    <section class="slide" data-title="Proposed system">
+      <h2>Our proposed system</h2>
+      <p class="lead">Project AVATAR combines farm monitoring, routine control and protection in one ESP32-based prototype.</p>
+      <div class="two-column">
+        <div>
+          <h3>It monitors</h3>
+          <ul class="plain-list compact">
+            <li>Soil pH, EC and NPK</li>
+            <li>Soil moisture; air temperature and humidity</li>
+            <li>Light, gas, movement and fire state</li>
+            <li>Data freshness and pump activity</li>
+            <li>Future remote child-node readings</li>
+          </ul>
+        </div>
+        <div>
+          <h3>It controls</h3>
+          <ul class="plain-list compact">
+            <li>One bounded irrigation-pump response</li>
+            <li>Servo-assisted fire-pump response</li>
+            <li>Safe local control without internet</li>
+            <li>ThingSpeak data history</li>
+            <li>Farmer dashboard and status</li>
+          </ul>
+        </div>
+      </div>
+      <span class="page">4 / 10</span>
+    </section>
+
+    <section class="slide" data-title="Overview and scope">
+      <h2>System overview and scope</h2>
+      <div class="process">
+        <div><b>1</b><span>Sensors measure the farm.</span></div>
+        <svg class="flow-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg>
+        <div><b>2</b><span>The ESP32 checks and stores readings.</span></div>
+        <svg class="flow-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg>
+        <div><b>3</b><span>Bounded local protection responds.</span></div>
+        <svg class="flow-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg>
+        <div><b>4</b><span>ThingSpeak and dashboard show history.</span></div>
+      </div>
+      <div class="scope">
+        <h3>Scope limitation</h3>
+        <p>This is a controlled 2 x 3 ft wired prototype. It demonstrates one irrigation area and one fire response; it does not claim multi-zone irrigation, commercial-farm deployment, crop-yield measurement, or professional fire suppression. Future child nodes will communicate wirelessly after the wired head-node is proven.</p>
+      </div>
+      <span class="page">5 / 10</span>
+    </section>
+
+    <section class="slide technical" data-title="System architecture">
+      <h2>Technical drawing: system architecture</h2>
+      <div class="diagram mermaid" aria-label="Project AVATAR system architecture">
+flowchart LR
+  SOIL["RS-485 soil probe · moisture · climate"] --> ESP
+  FIRE["One fire sensor · MQ-6 gas · LDR"] --> ESP
+  ESP["ESP32 HEAD NODE&lt;br/&gt;Collect · protect · queue"] --> FLUID["Irrigation pump"]
+  ESP --> RESPONSE["Fire pump and servo"]
+  ESP --> CLOUD["ThingSpeak channels · planned"]
+  CLOUD --> SERVER["Farmer dashboard · planned cloud view"]
+  classDef core fill:#b9f34a,stroke:#11110f,stroke-width:3px;
+  classDef unit fill:#fffdf5,stroke:#11110f,stroke-width:2px;
+  classDef network fill:#dbeee5,stroke:#11110f,stroke-width:2px;
+  class ESP core;
+  class SOIL,FIRE,FLUID,RESPONSE unit;
+  class CLOUD,SERVER network;
+      </div>
+      <span class="page">6 / 10</span>
+    </section>
+
+    <section class="slide technical" data-title="Input interfaces">
+      <h2>Technical drawing: sensor inputs</h2>
+      <div class="diagram mermaid" aria-label="Sensor connection drawing">
+flowchart TB
+  PROBE["Soil probe · RS-485&lt;br/&gt;GPIO 16/17/4"] --> ESP
+  SOIL["Capacitive moisture&lt;br/&gt;GPIO 35"] --> ESP
+  DHT["DHT11 air climate&lt;br/&gt;GPIO 13"] --> ESP
+  AMBIENT["LDR / MQ-6&lt;br/&gt;GPIO 36 / 39"] --> ESP
+  PROTECT["Fire sensor&lt;br/&gt;GPIO 34"] --> ESP
+  ESP["ESP32 INPUTS"]
+  classDef core fill:#b9f34a,stroke:#11110f,stroke-width:3px;
+  classDef unit fill:#fffdf5,stroke:#11110f,stroke-width:2px;
+  class ESP core;
+  class PROBE,SOIL,DHT,AMBIENT,PROTECT unit;
+      </div>
+      <p class="diagram-note">All inputs share regulated power and ground. Analogue lines must stay within 3.3 V and be calibrated; the MAX485 receive line needs a verified 3.3 V interface. The soil probe's register map is not yet confirmed.</p>
+      <span class="page">7 / 10</span>
+    </section>
+
+    <section class="slide technical" data-title="Outputs and power">
+      <h2>Technical drawing: outputs and power</h2>
+      <div class="diagram mermaid" aria-label="Output driver and power arrangement">
+flowchart TB
+  BATTERY["5S battery"] --> BUCK12["Existing 12 V buck"]
+  BUCK12 --> BUCK5["Existing 5 V buck"] --> ESP["ESP32 + sensors"]
+  BUCK12 --> STOP["Fuse + emergency stop"] --> DRIVER["L298N · current check needed"]
+  ESP -->|"bounded control"| DRIVER
+  DRIVER --> PUMPS["Irrigation + fire pumps"]
+  BUCK5 --> SERVO["Servo motor"]
+  ESP --> SERVO
+  classDef power fill:#f5df77,stroke:#11110f,stroke-width:2px;
+  classDef core fill:#b9f34a,stroke:#11110f,stroke-width:3px;
+  classDef unit fill:#fffdf5,stroke:#11110f,stroke-width:2px;
+  class BATTERY,BUCK12,BUCK5 power;
+  class ESP core;
+  class STOP,DRIVER,PUMPS,SERVO unit;
+      </div>
+      <p class="diagram-note">The 5S → 12 V → 5 V buck chain is already in place. Solar charging is deferred until the correct 5S BMS and charger are available. Pump output stays disabled until current and wiring checks pass.</p>
+      <span class="page">8 / 10</span>
+    </section>
+
+    <section class="slide technical" data-title="Software communication">
+      <h2>Technical drawing: software communication</h2>
+      <div class="diagram mermaid" aria-label="Communication and command sequence">
+sequenceDiagram
+  participant E as ESP32
+  participant S as Server
+  participant T as ThingSpeak
+  participant F as Farmer
+  E->>S: Send local readings (working)
+  E-->>T: Upload on reconnect (planned)
+  S->>T: Read private history (planned)
+  S-->>F: Show readings + freshness
+  F->>S: Request control
+  S-->>E: Deliver authorised command
+  E->>S: Acknowledge result
+      </div>
+      <p class="diagram-note">Local telemetry to the Node server works now. ThingSpeak upload and the authorised remote data path are planned. Immediate safety decisions remain on the ESP32.</p>
+      <span class="page">9 / 10</span>
+    </section>
+
+    <section class="slide end-slide" data-title="Questions">
+      <p class="project-name">PROJECT AVATAR</p>
+      <h1>Thank you.</h1>
+      <p>Questions and comments are welcome.</p>
+      <div class="end-rule"></div>
+      <p class="end-topic">Agricultural Vision and Automated Technology for Adaptive Response</p>
+      <span class="page">10 / 10</span>
+    </section>
+  </main>
+
+  <nav class="navigation" aria-label="Slide navigation">
+    <button id="previousButton" type="button" aria-label="Previous slide"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m5 5-5-5 5-5"/></svg></button>
+    <span><b id="currentSlide">1</b> / 10 · <span id="currentTitle">Title</span></span>
+    <button id="nextButton" type="button" aria-label="Next slide"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></button>
+  </nav>
+  <script src="/slide/vendor/mermaid.min.js" defer></script>
+  <script src="/slide/slides.js" defer></script>
+</body>
+</html>
