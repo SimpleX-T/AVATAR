@@ -1,13 +1,19 @@
 {
-  "name": "night-garden-server",
+  "name": "project-avatar-server",
   "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "node --watch src/server.js",
-    "check": "node --check src/server.js && node --check public/app.js",
-    "test:smoke": "node test/smoke.js"
+    "start": "node --env-file-if-exists=.env src/server.js",
+    "dev": "node --env-file-if-exists=.env --watch src/server.js",
+    "build:auth": "npm --prefix client run build",
+    "check": "node --check src/server.js && node --check public/app.js && npm --prefix client run check",
+    "test:smoke": "node --env-file-if-exists=.env test/smoke.js"
+  },
+  "dependencies": {
+    "@privy-io/node": "^0.8.0",
+    "mermaid": "^11.12.2",
+    "ws": "^8.18.3"
   },
   "engines": {
     "node": ">=20"

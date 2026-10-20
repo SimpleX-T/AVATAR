@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Greenhouse research report · AVATAR</title>
+  <link rel="stylesheet" href="/report/report.css" />
+</head>
+<body>
+  <header class="toolbar">
+    <a href="/">← Back to greenhouse</a>
+    <button id="print-report" type="button" disabled>Print or save PDF</button>
+  </header>
+  <main class="sheet">
+    <div class="eyebrow">PROJECT AVATAR <span>GREENHOUSE RESEARCH / FIELD RECORD</span></div>
+    <section class="hero">
+      <div>
+        <p class="kicker">12-HOUR REPORT</p>
+        <h1 id="farm-name">Preparing your report</h1>
+        <p id="report-status" role="status">Checking farm setup and recorded readings…</p>
+      </div>
+      <div class="hero-mark" aria-hidden="true">AV<span>↗</span></div>
+    </section>
+    <section id="report-content" hidden>
+      <div class="meta">
+        <div><span>Prepared for</span><strong id="farmer-name">—</strong></div>
+        <div><span>Crop</span><strong id="crop">—</strong></div>
+        <div><span>Recording window</span><strong id="period">—</strong></div>
+        <div><span>Data source</span><strong>Private ThingSpeak history</strong></div>
+      </div>
+      <section class="summary" aria-labelledby="summary-title">
+        <p class="kicker">01 / WHAT THE RECORD SHOWS</p>
+        <h2 id="summary-title">A clear view of your greenhouse</h2>
+        <p id="summary-copy">—</p>
+        <p class="coverage" id="coverage">—</p>
+      </section>
+      <section class="findings" aria-label="Recorded measurements">
+        <article><span class="number">01</span><h3>Air temperature</h3><strong id="temperature">—</strong><p id="temperature-detail">—</p></article>
+        <article><span class="number">02</span><h3>Air humidity</h3><strong id="humidity">—</strong><p id="humidity-detail">—</p></article>
+        <article><span class="number">03</span><h3>Soil moisture</h3><strong id="soil">—</strong><p id="soil-detail">—</p></article>
+      </section>
+      <section class="protection" aria-labelledby="protection-title">
+        <p class="kicker">02 / PROTECTION & WATER</p>
+        <h2 id="protection-title">Responses seen in the record</h2>
+        <dl>
+          <div><dt>Fire flagged</dt><dd id="fire-samples">—</dd></div>
+          <div><dt>Irrigation pump commanded on</dt><dd id="irrigation-samples">—</dd></div>
+          <div><dt>Fire pump commanded on</dt><dd id="fire-pump-samples">—</dd></div>
+        </dl>
+        <p>These are recorded samples, not counts of separate incidents. A pump command does not confirm water flowed.</p>
+      </section>
+      <aside class="research-note"><strong>Research note</strong><p id="research-note">—</p></aside>
+      <footer>AVATAR · OFF-GRID GREENHOUSE RESEARCH PROTOTYPE <span id="generated-at"></span></footer>
+    </section>
+  </main>
+  <script type="module" src="/report/report.js"></script>
+</body>
+</html>

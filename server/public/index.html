@@ -7,7 +7,7 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
     <meta name="theme-color" content="#f4f0e6" />
-    <title>Night Garden · Agricultural Control Dashboard</title>
+    <title>Project AVATAR · Greenhouse Research Dashboard</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -19,11 +19,11 @@
     </div>
 
     <header class="site-header">
-      <a class="brand" href="/" aria-label="Night Garden dashboard home">
-        <span class="brand__mark" aria-hidden="true">NG</span>
+      <a class="brand" href="/" aria-label="Project AVATAR dashboard home">
+        <span class="brand__mark" aria-hidden="true">AV</span>
         <span>
-          <strong>Night Garden</strong>
-          <small>Smart Agricultural Control System</small>
+          <strong>Project AVATAR</strong>
+          <small>Agricultural Vision &amp; Automated Response</small>
         </span>
       </a>
 
@@ -34,25 +34,47 @@
           <strong id="connection-label">WAITING FOR DATA</strong>
         </span>
       </div>
+      <button class="operator-signout" id="operator-signout" type="button">
+        Sign out
+      </button>
     </header>
 
     <main>
       <section class="page-intro" aria-labelledby="dashboard-title">
         <div>
           <p class="section-code">LIVE MONITOR / DEVICE 001</p>
-          <h1 id="dashboard-title">Farm condition at a glance</h1>
+          <h1 id="dashboard-title">Greenhouse conditions at a glance</h1>
         </div>
-        <p class="intro-copy">
-          Live simulated readings from the ESP32. Values update automatically
-          every five seconds.
+        <p class="intro-copy" id="intro-copy">
+          Latest readings from the field unit. The time shown with each update
+          tells you how recent the information is.
         </p>
+      </section>
+
+      <section class="farm-profile" aria-labelledby="farm-profile-title">
+        <div class="farm-profile__copy">
+          <p class="section-code">YOUR GREENHOUSE / RESEARCH RECORD</p>
+          <h2 id="farm-profile-title">Give this greenhouse a name</h2>
+          <p>These details appear on your report. The 12-hour clock starts when the ESP32 confirms it has saved them.</p>
+          <p class="farm-profile__status" id="farm-profile-status" role="status">Loading farm setup…</p>
+          <button type="button" id="open-report" disabled>Print 12-hour report</button>
+        </div>
+        <form id="farm-profile-form" class="farm-profile__form">
+          <label for="farm-name">Greenhouse name</label>
+          <input id="farm-name" name="name" autocomplete="organization" maxlength="80" required />
+          <label for="farmer-name">Your name</label>
+          <input id="farmer-name" name="farmerName" autocomplete="name" maxlength="80" required />
+          <label for="farm-crop">Main crop <span>(optional)</span></label>
+          <input id="farm-crop" name="crop" maxlength="80" />
+          <button type="submit">Save greenhouse details</button>
+        </form>
       </section>
 
       <section class="metric-grid" aria-label="Current environmental readings">
         <article class="metric metric--yellow">
           <div class="metric__header">
             <h2>Air temperature</h2>
-            <span class="metric__state">SIMULATED</span>
+            <span class="metric__state" id="temperature-state">WAITING</span>
           </div>
           <p class="metric__reading">
             <strong id="temperature-value">—</strong><span>°C</span>
@@ -63,7 +85,7 @@
         <article class="metric metric--blue">
           <div class="metric__header">
             <h2>Air humidity</h2>
-            <span class="metric__state">SIMULATED</span>
+            <span class="metric__state" id="humidity-state">WAITING</span>
           </div>
           <p class="metric__reading">
             <strong id="humidity-value">—</strong><span>%</span>
@@ -105,7 +127,7 @@
               <p class="section-code">SYSTEM FLOW</p>
               <h2>How the field station is behaving</h2>
             </div>
-            <span class="simulation-label">SIMULATION MODE</span>
+            <span class="simulation-label">FIELD STATION</span>
           </div>
 
           <canvas
@@ -115,8 +137,9 @@
           ></canvas>
 
           <p class="canvas-description">
-            The ESP32 generates sample sensor readings, sends them to the local
-            server, and receives demonstration commands from this dashboard.
+            The ESP32 collects field readings and makes local protection
+            decisions. The server records them in private ThingSpeak channels
+            when cloud access is configured.
           </p>
         </article>
 
@@ -132,10 +155,6 @@
             <div>
               <dt>Soil condition</dt>
               <dd id="soil-summary">Waiting for a reading.</dd>
-            </div>
-            <div>
-              <dt>Motion detector</dt>
-              <dd id="motion-summary">Waiting for a reading.</dd>
             </div>
             <div>
               <dt>Fire detector</dt>
@@ -163,14 +182,14 @@
             <p class="section-code">SAFE DEMONSTRATION CONTROLS</p>
             <h2 id="controls-title">Test the system without sensors</h2>
           </div>
-          <p>
-            These controls change simulated values only. Physical outputs remain
-            disabled.
+          <p id="controls-explanation">
+            Simulation controls become available when the field unit is running
+            in simulation mode. Pump and servo controls are disabled.
           </p>
         </div>
 
         <div class="command-grid">
-          <button type="button" data-action="SIMULATE_DRY_SOIL">
+          <button type="button" data-action="SIMULATE_DRY_SOIL" disabled>
             <span class="command__illustration" aria-hidden="true">
               <img src="/assets/generated/soil-sensor.webp" alt="" />
             </span>
@@ -180,23 +199,13 @@
             </span>
           </button>
 
-          <button type="button" data-action="SIMULATE_MOTION">
-            <span class="command__illustration" aria-hidden="true">
-              <img src="/assets/generated/pir-sensor.webp" alt="" />
-            </span>
-            <span>
-              <strong>Simulate movement</strong>
-              <small>Marks motion as detected for ten seconds.</small>
-            </span>
-          </button>
-
           <button type="button" data-action="LED_ON">
             <span class="command__illustration" aria-hidden="true">
               <img src="/assets/generated/esp32-led.webp" alt="" />
             </span>
             <span>
-              <strong>Turn onboard LED on</strong>
-              <small>Switches on the blue LED fitted to the ESP32 board.</small>
+              <strong>Turn status LED on</strong>
+              <small>Switches on the external status LED on GPIO22.</small>
             </span>
           </button>
 
@@ -204,6 +213,7 @@
             type="button"
             data-action="CLEAR_SIMULATION"
             class="command--secondary"
+            disabled
           >
             <span class="command__illustration" aria-hidden="true">
               <img src="/assets/generated/reset-button.webp" alt="" />
@@ -229,7 +239,7 @@
             <tbody>
               <tr>
                 <th scope="row">Device identifier</th>
-                <td id="device-id-value">night-garden-001</td>
+                <td id="device-id-value">project-avatar-001</td>
               </tr>
               <tr>
                 <th scope="row">Operating mode</th>
@@ -240,12 +250,24 @@
                 <td id="rssi-value">—</td>
               </tr>
               <tr>
-                <th scope="row">Motion</th>
-                <td id="motion-value">—</td>
-              </tr>
-              <tr>
                 <th scope="row">Fire response</th>
                 <td id="fire-value">—</td>
+              </tr>
+              <tr>
+                <th scope="row">Recorded source</th>
+                <td id="data-source-value">—</td>
+              </tr>
+              <tr>
+                <th scope="row">Soil probe</th>
+                <td id="probe-value">—</td>
+              </tr>
+              <tr>
+                <th scope="row">MQ-6 atmosphere signal</th>
+                <td id="gas-value">—</td>
+              </tr>
+              <tr>
+                <th scope="row">Water response</th>
+                <td id="water-value">—</td>
               </tr>
             </tbody>
           </table>
@@ -270,8 +292,8 @@
     </main>
 
     <footer>
-      <strong>NIGHT GARDEN / GROUP A27H</strong>
-      <span>Off-grid IoT-enabled agricultural management system</span>
+      <strong>PROJECT AVATAR / GROUP A27H</strong>
+      <span>Off-grid greenhouse farming research prototype</span>
       <a href="https://openmoji.org/" target="_blank" rel="noreferrer">
         Character artwork: OpenMoji · CC BY-SA 4.0
       </a>

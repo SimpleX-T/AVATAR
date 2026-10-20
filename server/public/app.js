@@ -1,16 +1,67 @@
-const deviceId = "night-garden-001";
-const dryThreshold = 1800;
+const deviceId = "project-avatar-001";
+const dryThreshold = 2928; // Commissioned capacitive sensor; prefer device's soilDry flag.
 const eventLog = document.querySelector("#event-log");
 const toast = document.querySelector("#toast");
 const copyLogsButton = document.querySelector("#copy-logs");
 const downloadLogsButton = document.querySelector("#download-logs");
+const signOutButton = document.querySelector("#operator-signout");
+const farmForm = document.querySelector("#farm-profile-form");
+const farmStatus = document.querySelector("#farm-profile-status");
+const reportButton = document.querySelector("#open-report");
+let farmSetup = null;
 let lastTelemetryAt = 0;
+let currentMode = null;
+let cloudMode = false;
+const telemetryFreshnessMs = 150_000;
+
+async function redirectIfUnauthorized(response) {
+  if (response.status !== 401) return false;
+  window.location.assign("/auth/");
+  return true;
+}
+
+async function signOut() {
+  signOutButton.disabled = true;
+  await fetch("/api/auth/session", { method: "DELETE" });
+  window.location.assign("/auth/?logout=1");
+}
+
+function renderFarmProfile(payload) {
+  farmSetup = payload;
+  const farm = payload.farm;
+  if (farm) {
+    farmForm.elements.name.value = farm.name;
+    farmForm.elements.farmerName.value = farm.farmerName;
+    farmForm.elements.crop.value = farm.crop || "";
+  }
+  const eligibleAt = Date.parse(payload.report?.eligibleAt || "");
+  const ready = Number.isFinite(eligibleAt) && Date.now() >= eligibleAt;
+  reportButton.disabled = !ready;
+  farmStatus.textContent = !farm
+    ? "No greenhouse details saved yet. Reports unlock 12 hours after the ESP32 confirms setup."
+    : !farm.deviceSyncedAt
+      ? "Saved on this server. Waiting for the ESP32 to confirm on-chip storage; keep it powered and connected."
+    : ready
+      ? `Ready: ${farm.name}'s recorded 12-hour report can be printed.`
+      : `ESP32 confirmed setup. Report unlocks ${new Date(eligibleAt).toLocaleString()}.`;
+}
+
+async function loadFarmProfile() {
+  const response = await fetch("/api/farm");
+  if (await redirectIfUnauthorized(response)) return;
+  if (!response.ok) throw new Error("Could not load greenhouse setup.");
+  renderFarmProfile(await response.json());
+}
 
 const elements = {
   connection: document.querySelector("#connection"),
   connectionLabel: document.querySelector("#connection-label"),
   temperature: document.querySelector("#temperature-value"),
+  temperatureState: document.querySelector("#temperature-state"),
   humidity: document.querySelector("#humidity-value"),
+  humidityState: document.querySelector("#humidity-state"),
+  introCopy: document.querySelector("#intro-copy"),
+  controlsExplanation: document.querySelector("#controls-explanation"),
   soil: document.querySelector("#soil-value"),
   soilState: document.querySelector("#soil-state"),
   soilExplanation: document.querySelector("#soil-explanation"),
@@ -18,18 +69,21 @@ const elements = {
   deviceWord: document.querySelector("#device-word"),
   lastSeen: document.querySelector("#last-seen"),
   soilSummary: document.querySelector("#soil-summary"),
-  motionSummary: document.querySelector("#motion-summary"),
   fireSummary: document.querySelector("#fire-summary"),
   signalSummary: document.querySelector("#signal-summary"),
   overallStatus: document.querySelector("#overall-status"),
   deviceId: document.querySelector("#device-id-value"),
   mode: document.querySelector("#mode-value"),
   rssi: document.querySelector("#rssi-value"),
-  motion: document.querySelector("#motion-value"),
   fire: document.querySelector("#fire-value"),
+  dataSource: document.querySelector("#data-source-value"),
+  probe: document.querySelector("#probe-value"),
+  gas: document.querySelector("#gas-value"),
+  water: document.querySelector("#water-value"),
 };
 
 function formatNumber(value, digits = 0) {
+  if (value === null || value === undefined || value === "") return "—";
   return Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : "—";
 }
 
@@ -113,7 +167,7 @@ function downloadLogs() {
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
   const link = document.createElement("a");
   link.href = url;
-  link.download = `night-garden-log-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.download = `project-avatar-log-${new Date().toISOString().slice(0, 10)}.csv`;
   link.click();
   URL.revokeObjectURL(url);
   showToast(`${rows.length} LOG ENTRIES DOWNLOADED`);
@@ -138,26 +192,35 @@ function setOverallStatus(readings, outputs) {
   const statusCopy = elements.overallStatus.querySelector("p");
   elements.overallStatus.classList.remove("is-good", "is-alert");
 
-  if (outputs.fireResponse) {
+  if (readings.fireDetected) {
     elements.overallStatus.classList.add("is-alert");
     statusIcon.textContent = "!";
-    statusCopy.innerHTML =
-      "<strong>Fire response active</strong>The controller reports an active fire-response state.";
+    statusCopy.innerHTML = outputs.fireResponse
+      ? "<strong>Fire detected · pump active</strong>Check the farm immediately. The local response is running."
+      : "<strong>Fire detected · pump inactive</strong>Check the farm immediately. The controller is not spraying.";
     return;
   }
 
-  if (readings.motionDetected) {
+  if (outputs.fireLockout) {
     elements.overallStatus.classList.add("is-alert");
     statusIcon.textContent = "!";
     statusCopy.innerHTML =
-      "<strong>Movement detected</strong>The simulated motion detector is currently active.";
+      "<strong>Fire response locked</strong>Inspect the unit before resetting the safety lock.";
+    return;
+  }
+
+  if (readings.fireSensorEnabled === false) {
+    elements.overallStatus.classList.add("is-alert");
+    statusIcon.textContent = "!";
+    statusCopy.innerHTML =
+      "<strong>Fire sensor not configured</strong>Fire protection has not been commissioned on this unit.";
     return;
   }
 
   elements.overallStatus.classList.add("is-good");
   statusIcon.textContent = "✓";
   statusCopy.innerHTML =
-    "<strong>System operating normally</strong>The ESP32 is online and no protection alert is active.";
+    "<strong>No protection alert reported</strong>Check the last update time before acting on these readings.";
 }
 
 class FieldCanvas {
@@ -288,7 +351,8 @@ class FieldCanvas {
     const live = this.connected;
   const readings = this.telemetry?.readings;
     const soilRaw = Number(readings?.soilRaw);
-    const hasSoilReading = Number.isFinite(soilRaw);
+    const hasSoilReading = readings?.soilSensorEnabled !== false &&
+      Number.isFinite(soilRaw) && soilRaw >= 0;
     const isDry = hasSoilReading && soilRaw >= dryThreshold;
     const t = this.reducedMotion ? 0 : time / 1000;
 
@@ -411,43 +475,84 @@ function renderTelemetry(telemetry, log = true) {
   if (!telemetry) return;
 
   const { readings, outputs } = telemetry;
+  currentMode = telemetry.mode;
+  const simulation = currentMode === "simulation";
+  for (const button of document.querySelectorAll("[data-action]")) {
+    if (button.dataset.action.startsWith("SIMULATE_") ||
+        button.dataset.action === "CLEAR_SIMULATION") {
+      button.disabled = !simulation;
+      button.title = simulation ? "" : "Available only in simulation mode";
+    }
+  }
+  elements.controlsExplanation.textContent = simulation
+    ? "These controls change simulated readings only. Pump and servo controls remain disabled."
+    : "Simulation controls are unavailable while the unit is reading physical sensors.";
   const soilRaw = Number(readings.soilRaw);
-  const isDry = soilRaw >= dryThreshold;
-  const rssi = Number(telemetry.wifiRssi);
+  const hasSoilReading = readings.soilSensorEnabled !== false &&
+    Number.isFinite(soilRaw) && soilRaw >= 0;
+  const isDry = hasSoilReading && (typeof readings.soilDry === "boolean"
+    ? readings.soilDry : soilRaw >= dryThreshold);
+  const rssi = telemetry.wifiRssi == null ? NaN : Number(telemetry.wifiRssi);
   const receivedAt = Date.parse(telemetry.receivedAt);
   lastTelemetryAt = Number.isFinite(receivedAt) ? receivedAt : Date.now();
-  const isFresh = Date.now() - lastTelemetryAt <= 12_000;
+  const isFresh = Date.now() - lastTelemetryAt <= telemetryFreshnessMs;
 
   elements.connection.classList.add("is-live");
-  elements.connectionLabel.textContent = "ONLINE — RECEIVING DATA";
-  elements.deviceState.textContent = "ONLINE";
-  elements.deviceWord.textContent = "ONLINE";
+  elements.connectionLabel.textContent = telemetry.source === "thingspeak"
+    ? "THINGSPEAK REPORT" : "RECENT FIELD REPORT";
+  elements.deviceState.textContent = "REPORTED";
+  elements.deviceWord.textContent = "RECENT DATA";
   elements.deviceId.textContent = telemetry.deviceId;
   elements.temperature.textContent = formatNumber(readings.temperatureC, 1);
   elements.humidity.textContent = formatNumber(readings.humidityPercent, 1);
-  elements.soil.textContent = formatNumber(soilRaw);
+  elements.soil.textContent = hasSoilReading ? formatNumber(soilRaw) : "—";
+  elements.temperatureState.textContent = telemetry.source === "thingspeak"
+    ? "CLOUD" : telemetry.mode === "simulation" ? "SIMULATED" : "SENSOR";
+  elements.humidityState.textContent = telemetry.source === "thingspeak"
+    ? "CLOUD" : telemetry.mode === "simulation" ? "SIMULATED" : "SENSOR";
+  elements.introCopy.textContent = telemetry.source === "thingspeak"
+    ? "Recorded readings from your private ThingSpeak channels. Check the update time before acting."
+    : telemetry.mode === "simulation"
+    ? "Simulation readings from the field unit. Last update time shows how recent they are."
+    : "Latest readings from the field unit. Check the last update time before acting.";
   elements.mode.textContent =
     telemetry.mode === "simulation" ? "Simulation" : "Physical hardware";
-  elements.rssi.textContent = `${formatNumber(rssi)} dBm`;
-  elements.motion.textContent = readings.motionDetected ? "Detected" : "Clear";
-  elements.fire.textContent = outputs.fireResponse ? "Active" : "Clear";
+  elements.rssi.textContent = Number.isFinite(rssi) ? `${formatNumber(rssi)} dBm` : "—";
+  elements.dataSource.textContent = telemetry.source === "thingspeak"
+    ? "Private ThingSpeak channels" : "Local field server (cloud not configured)";
+  const raw = readings.probe?.raw;
+  elements.probe.textContent = raw && readings.probe.validCount > 0
+    ? `pH ${formatNumber(raw.ph)} · EC ${formatNumber(raw.ec)} · N ${formatNumber(raw.nitrogen)} · P ${formatNumber(raw.phosphorus)} · K ${formatNumber(raw.potassium)} (raw registers, unverified units)`
+    : "No recent probe reading";
+  elements.gas.textContent = readings.mq6Raw == null
+    ? "No reading" : `${formatNumber(readings.mq6Raw)} ADC (uncalibrated)`;
+  elements.water.textContent = outputs.fireResponse ? "Fire pump commanded on"
+    : outputs.irrigation ? "Irrigation pump commanded on"
+    : outputs.fireLockout ? "Fire response blocked; inspect system"
+    : outputs.irrigationLockout ? "Irrigation fault; inspect water path"
+    : "Pumps commanded off";
+  elements.fire.textContent = readings.fireSensorEnabled === false
+    ? "Not configured"
+    : readings.fireDetected ? "Fire detected" : "Clear";
   elements.lastSeen.textContent = `Last update: ${new Date(
     telemetry.receivedAt,
   ).toLocaleTimeString()}`;
 
-  elements.soilState.textContent = isDry ? "DRY" : "MOIST";
-  elements.soilExplanation.textContent = isDry
-    ? "Above the configured irrigation threshold."
+  elements.soilState.textContent = !hasSoilReading ? "NOT CONFIGURED" : isDry ? "DRY" : "MOIST";
+  elements.soilExplanation.textContent = !hasSoilReading
+    ? "The soil moisture sensor has not been commissioned."
+    : isDry ? "Above the configured irrigation threshold."
     : "Below the configured dry-soil threshold.";
-  elements.soilSummary.textContent = isDry
-    ? `Dry: ${soilRaw} ADC is above the ${dryThreshold} irrigation threshold.`
+  elements.soilSummary.textContent = !hasSoilReading
+    ? "No verified soil moisture reading is available."
+    : isDry ? `Dry: ${soilRaw} ADC is above the ${dryThreshold} irrigation threshold.`
     : `Moist: ${soilRaw} ADC is below the ${dryThreshold} irrigation threshold.`;
-  elements.motionSummary.textContent = readings.motionDetected
-    ? "Movement is currently detected."
-    : "No movement is currently detected.";
-  elements.fireSummary.textContent = outputs.fireResponse
-    ? "The fire-response state is active."
-    : "No fire-response event is active.";
+  elements.fireSummary.textContent = readings.fireSensorEnabled === false
+    ? "Fire monitoring has not been configured."
+    : readings.fireDetected
+      ? outputs.fireResponse ? "Fire detected; the pump is active." : "Fire detected; the pump is inactive."
+      : outputs.fireLockout ? "The fire response is locked until inspection."
+      : "No fire detected in the latest reading.";
   elements.signalSummary.textContent = describeSignal(rssi);
 
   setOverallStatus(readings, outputs);
@@ -474,23 +579,36 @@ function renderTelemetry(telemetry, log = true) {
 }
 
 function markOffline(reason = "No recent transmission") {
+  currentMode = null;
+  for (const button of document.querySelectorAll("[data-action]")) {
+    if (button.dataset.action.startsWith("SIMULATE_") ||
+        button.dataset.action === "CLEAR_SIMULATION")
+      button.disabled = true;
+  }
   elements.connection.classList.remove("is-live");
-  elements.connectionLabel.textContent = "OFFLINE — CHECK CONNECTION";
-  elements.deviceState.textContent = "OFFLINE";
-  elements.deviceWord.textContent = "OFFLINE";
+  elements.connectionLabel.textContent = "NO RECENT REPORT";
+  elements.deviceState.textContent = "STALE";
+  elements.deviceWord.textContent = "STALE DATA";
   elements.lastSeen.textContent = reason;
   elements.overallStatus.classList.remove("is-good");
   elements.overallStatus.classList.add("is-alert");
   elements.overallStatus.querySelector("span").textContent = "!";
   elements.overallStatus.querySelector("p").innerHTML =
-    "<strong>ESP32 connection interrupted</strong>Check Wi-Fi, the server address, and power to the board.";
+    "<strong>No recent field report</strong>Check the unit's power and Wi-Fi. Local protection may still be working.";
   fieldCanvas.setConnected(false);
 }
 
 async function loadState() {
   const response = await fetch("/api/state");
-  if (!response.ok) throw new Error("Could not load the latest system state.");
+  if (await redirectIfUnauthorized(response)) return;
   const snapshot = await response.json();
+  cloudMode = snapshot.source === "thingspeak";
+  if (!response.ok)
+    throw new Error(snapshot.error || "Could not load the latest system state.");
+  if (snapshot.source === "thingspeak" && !snapshot.latest) {
+    markOffline("ThingSpeak has no field reports yet.");
+    return;
+  }
   renderTelemetry(snapshot.latest, false);
 }
 
@@ -500,6 +618,7 @@ async function sendCommand(action) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ deviceId, action }),
   });
+  if (await redirectIfUnauthorized(response)) return;
   const result = await response.json();
 
   if (!response.ok) throw new Error(result.error || "Command could not be queued.");
@@ -508,6 +627,9 @@ async function sendCommand(action) {
 
 for (const button of document.querySelectorAll("[data-action]")) {
   button.addEventListener("click", async () => {
+    const simulationAction = button.dataset.action.startsWith("SIMULATE_") ||
+      button.dataset.action === "CLEAR_SIMULATION";
+    if (simulationAction && currentMode !== "simulation") return;
     button.disabled = true;
     button.classList.add("is-sending");
     try {
@@ -515,37 +637,58 @@ for (const button of document.querySelectorAll("[data-action]")) {
     } catch (error) {
       showToast(error.message.toUpperCase());
     } finally {
-      button.disabled = false;
+      button.disabled = simulationAction && currentMode !== "simulation";
       button.classList.remove("is-sending");
     }
   });
 }
 
-const eventSource = new EventSource("/api/events");
-eventSource.addEventListener("telemetry", (event) => {
-  renderTelemetry(JSON.parse(event.data));
-});
-eventSource.addEventListener("command", (event) => {
-  const command = JSON.parse(event.data);
-  const action = command.action.toLowerCase().replaceAll("_", " ");
-  addLog(`Command queued: ${action}`);
-});
-eventSource.addEventListener("command-status", (event) => {
-  const command = JSON.parse(event.data);
-  const action = command.action.toLowerCase().replaceAll("_", " ");
-  const status = command.applied ? "applied" : "rejected";
-  addLog(`Command ${status}: ${action}`, command.acknowledgedAt);
-  showToast(`${action} — ${status}`.toUpperCase());
-});
-eventSource.onerror = () => {
-  if (Date.now() - lastTelemetryAt > 12_000) {
-    markOffline("Live server connection interrupted.");
-  }
-};
+function connectDashboardSocket() {
+  const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+  const socket = new WebSocket(`${protocol}//${location.host}/ws/dashboard`);
+
+  socket.addEventListener("message", (event) => {
+    const message = JSON.parse(event.data);
+    if (message.event === "telemetry" && !cloudMode) renderTelemetry(message.payload);
+    if (message.event === "alert") {
+      const labels = {
+        FIRE_DETECTED: "Fire detected — check the farm now",
+        FIRE_RESPONSE_FAULT: "Fire response stopped — inspect the water path",
+        IRRIGATION_FAULT: "Irrigation stopped — inspect the water path",
+      };
+      const copy = labels[message.payload.alert] || "Field protection alert";
+      addLog(copy, message.payload.at);
+      showToast(copy.toUpperCase());
+    }
+    if (message.event === "alert-clear")
+      addLog("Protection alert cleared by the field unit", message.payload.at);
+    if (message.event === "command") {
+      addLog(`Command queued: ${message.payload.action.toLowerCase().replaceAll("_", " ")}`);
+    }
+    if (message.event === "command-status") {
+      const action = message.payload.action.toLowerCase().replaceAll("_", " ");
+      const status = message.payload.applied ? "applied" : "rejected";
+      addLog(`Command ${status}: ${action}`, message.payload.acknowledgedAt);
+    }
+    if (message.event === "farm-updated")
+      loadFarmProfile().catch(() => { farmStatus.textContent = "Could not refresh setup status."; });
+  });
+  socket.addEventListener("close", () => {
+    setTimeout(connectDashboardSocket, 1_000);
+  });
+}
+
+connectDashboardSocket();
+
+// Cloud-configured dashboards display ThingSpeak's recorded feed, not an
+// optimistic copy of the ESP32's most recent unconfirmed transmission.
+setInterval(() => {
+  if (cloudMode) loadState().catch(() => markOffline("ThingSpeak is unavailable."));
+}, 20_000);
 
 setInterval(() => {
-  if (lastTelemetryAt && Date.now() - lastTelemetryAt > 12_000) {
-    markOffline("No ESP32 transmission received for 12 seconds.");
+  if (lastTelemetryAt && Date.now() - lastTelemetryAt > telemetryFreshnessMs) {
+    markOffline("No ESP32 report received for more than two and a half minutes.");
   }
 }, 2_000);
 
@@ -553,8 +696,41 @@ loadState().catch((error) => {
   markOffline(error.message);
   showToast(error.message.toUpperCase());
 });
+loadFarmProfile().catch((error) => { farmStatus.textContent = error.message; });
+setInterval(() => { if (farmSetup) renderFarmProfile(farmSetup); }, 60_000);
+
+farmForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const submit = farmForm.querySelector('[type="submit"]');
+  submit.disabled = true;
+  farmStatus.textContent = "Saving greenhouse details…";
+  try {
+    const response = await fetch("/api/farm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(Object.fromEntries(new FormData(farmForm))),
+    });
+    if (await redirectIfUnauthorized(response)) return;
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Could not save greenhouse details.");
+    renderFarmProfile(result);
+  } catch (error) {
+    farmStatus.textContent = error.message;
+  } finally {
+    submit.disabled = false;
+  }
+});
+reportButton.addEventListener("click", () => {
+  if (!reportButton.disabled) window.location.assign("/report/");
+});
 
 copyLogsButton.addEventListener("click", () => {
   copyLogs().catch(() => showToast("COPY FAILED — USE DOWNLOAD CSV"));
 });
 downloadLogsButton.addEventListener("click", downloadLogs);
+signOutButton.addEventListener("click", () => {
+  signOut().catch(() => {
+    signOutButton.disabled = false;
+    showToast("SIGN OUT FAILED — TRY AGAIN");
+  });
+});
