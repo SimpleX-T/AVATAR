@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "privy": {
+      "source": "docs.privy.io",
+      "sourceType": "well-known",
+      "computedHash": "21c2f5b06144109a7268b7bf60769499653dc4b960bc7a1c74b02e04511dd314"
+    }
+  }
+}
