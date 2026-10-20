@@ -4,7 +4,6 @@ namespace simulation
 {
 void begin();
 void update(unsigned long now);
-void triggerMotion(unsigned long now);
 void makeSoilDry();
 void clearOverrides();
 }

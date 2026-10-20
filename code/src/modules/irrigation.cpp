@@ -7,111 +7,136 @@
 #include "state.h"
 #include "timer.h"
 
-namespace
-{
+namespace {
 unsigned long lastSoilReadAt = 0;
 unsigned long drySince = 0;
 unsigned long irrigationStartedAt = 0;
 unsigned long lastIrrigationEndedAt = 0;
-unsigned long chemigationStartedAt = 0;
-bool dryTimerRunning = false;
-bool hasCompletedIrrigation = false;
+bool hasRun = false;
+bool needsWetReset = false;
+bool emergencyLocked = false;
 
-void stopIrrigation(unsigned long now)
-{
+void stop(unsigned long now, const char *event) {
     pump::irrigationOff();
     systemState.irrigationActive = false;
     lastIrrigationEndedAt = now;
-    hasCompletedIrrigation = true;
-    dryTimerRunning = false;
-    Serial.println("[IRRIGATION] Cycle complete.");
+    hasRun = true;
+    systemState.lastEvent = event;
 }
 }
 
-namespace irrigation
-{
-void begin()
-{
-    pinMode(SOIL_SENSOR_PIN, INPUT);
+namespace irrigation {
+void begin() {
+    systemState.sensors.soilSensorEnabled = ENABLE_SOIL_MOISTURE_INPUT;
+    if (ENABLE_SOIL_MOISTURE_INPUT) pinMode(SOIL_SENSOR_PIN, INPUT);
 }
 
-void update(unsigned long now)
-{
-    if (systemState.chemigationActive &&
-        elapsedSince(now, chemigationStartedAt, CHEMIGATION_DOSE_TIME))
-    {
-        pump::chemigationOff();
-        systemState.chemigationActive = false;
-        Serial.println("[CHEMIGATION] Timed dose complete.");
-    }
-
-    if (systemState.fireActive || systemState.fireSafetyLockout)
-    {
-        if (systemState.irrigationActive || systemState.chemigationActive)
-            emergencyStop();
-        return;
-    }
-
-    if (systemState.irrigationActive &&
-        elapsedSince(now, irrigationStartedAt, IRRIGATION_RUN_TIME))
-    {
-        stopIrrigation(now);
-    }
-
-    if (!elapsedSince(now, lastSoilReadAt, SOIL_READ_INTERVAL))
-        return;
-    lastSoilReadAt = now;
-    systemState.sensors.soilRaw = analogRead(SOIL_SENSOR_PIN);
-
-    if (systemState.irrigationActive || systemState.chemigationActive)
-        return;
-
-    const bool soilIsDry = systemState.sensors.soilRaw >= SOIL_DRY_THRESHOLD;
-    if (!soilIsDry)
-    {
-        dryTimerRunning = false;
-        return;
-    }
-
-    if (!dryTimerRunning)
-    {
-        dryTimerRunning = true;
-        drySince = now;
-        return;
-    }
-
-    const bool cooldownComplete =
-        !hasCompletedIrrigation ||
-        elapsedSince(now, lastIrrigationEndedAt, IRRIGATION_COOLDOWN);
-
-    if (cooldownComplete && elapsedSince(now, drySince, SOIL_DRY_CONFIRM_TIME))
-    {
-        pump::irrigationOn();
-        systemState.irrigationActive = true;
-        irrigationStartedAt = now;
-        Serial.println("[IRRIGATION] Dry soil confirmed; watering started.");
-    }
+void preemptByFire(unsigned long now) {
+    if (!systemState.irrigationActive) return;
+    stop(now, "WATER_STOP_FIRE_PRIORITY");
+    if (systemState.irrigationBursts > 0) --systemState.irrigationBursts;
+    systemState.irrigationSoaking = false;
 }
 
-bool startChemigation(unsigned long now)
-{
-    if (systemState.fireActive || systemState.fireSafetyLockout ||
-        systemState.irrigationActive || systemState.chemigationActive)
-        return false;
+void update(unsigned long now) {
+    if (!ENABLE_SOIL_MOISTURE_INPUT) return;
+    if (elapsedSince(now, lastSoilReadAt, SOIL_READ_INTERVAL)) {
+        lastSoilReadAt = now;
+        uint32_t sum = 0;
+        for (uint8_t index = 0; index < 16; ++index)
+            sum += analogRead(SOIL_SENSOR_PIN);
+        const int raw = static_cast<int>(sum / 16);
+        systemState.sensors.soilRaw = raw;
+        systemState.sensors.soilValid = raw > 0 && raw < 4095;
+        if (!systemState.sensors.soilValid) {
+            systemState.sensors.soilDry = false;
+            drySince = 0;
+            if (systemState.irrigationActive) {
+                stop(now, "WATER_FAULT_SOIL_INVALID");
+                systemState.irrigationSafetyLockout = true;
+                needsWetReset = true;
+            }
+        } else {
+            if (!systemState.sensors.soilDry && raw >= SOIL_DRY_THRESHOLD)
+                systemState.sensors.soilDry = true;
+            else if (systemState.sensors.soilDry && raw <= SOIL_WET_THRESHOLD)
+                systemState.sensors.soilDry = false;
+            if (!systemState.sensors.soilDry) {
+                drySince = 0;
+                needsWetReset = false;
+                systemState.irrigationBursts = 0;
+                systemState.irrigationSoaking = false;
+                if (!emergencyLocked && systemState.irrigationSafetyLockout) {
+                    systemState.irrigationSafetyLockout = false;
+                    systemState.lastEvent = "WATER_RECOVERED_WET_SOIL";
+                }
+            } else if (drySince == 0) drySince = now;
+        }
+    }
 
-    pump::chemigationOn();
-    systemState.chemigationActive = true;
-    chemigationStartedAt = now;
-    Serial.println("[CHEMIGATION] Manual timed dose started.");
-    return true;
+    if (systemState.irrigationActive) {
+        if (systemState.sensors.fireRawLow || systemState.sensors.fireDetected)
+            return preemptByFire(now);
+        if (!systemState.sensors.soilValid) return;
+        if (!systemState.sensors.soilDry) {
+            stop(now, "WATER_STOP_WET");
+            systemState.irrigationBursts = 0;
+            return;
+        }
+        if (irrigationStopDecision(true, true, true,
+                                   now - irrigationStartedAt) !=
+            IrrigationStop::BurstElapsed) return;
+        stop(now, "WATER_SOAK_AFTER_15S");
+        if (systemState.irrigationBursts >= IRRIGATION_MAX_BURSTS) {
+            systemState.irrigationSafetyLockout = true;
+            needsWetReset = true;
+            systemState.lastEvent = "WATER_FAULT_DRY_AFTER_2_BURSTS";
+        } else systemState.irrigationSoaking = true;
+        return;
+    }
+
+    const unsigned long wait = systemState.irrigationBursts > 0
+        ? IRRIGATION_SOAK_TIME : IRRIGATION_COOLDOWN;
+    const IrrigationDecisionInput decision = {
+        systemState.controllerReady && !emergencyLocked,
+        systemState.sensors.fireRawLow,
+        systemState.sensors.fireDetected,
+        systemState.fireSafetyLockout,
+        !systemState.fireActive,
+        systemState.sensors.soilValid,
+        systemState.sensors.soilDry,
+        needsWetReset,
+        drySince != 0 && elapsedSince(now, drySince, SOIL_DRY_CONFIRM_TIME),
+        !hasRun || elapsedSince(now, lastIrrigationEndedAt, wait),
+        systemState.irrigationSafetyLockout,
+    };
+    if (!mayStartIrrigation(decision)) return;
+    if (!pump::irrigationOn()) {
+        systemState.irrigationSafetyLockout = true;
+        systemState.lastEvent = "WATER_OUTPUT_UNAVAILABLE";
+        return;
+    }
+    systemState.irrigationActive = true;
+    systemState.irrigationSoaking = false;
+    ++systemState.irrigationBursts;
+    irrigationStartedAt = now;
+    systemState.lastEvent = "WATER_START";
 }
 
-void emergencyStop()
-{
+void emergencyStop() {
+    emergencyLocked = true;
     pump::irrigationOff();
-    pump::chemigationOff();
     systemState.irrigationActive = false;
-    systemState.chemigationActive = false;
-    dryTimerRunning = false;
+    systemState.irrigationSafetyLockout = true;
+    systemState.lastEvent = "EMERGENCY_STOP";
+}
+
+void resetSafetyLockout() {
+    if (systemState.irrigationActive || systemState.sensors.fireRawLow) return;
+    emergencyLocked = false;
+    systemState.irrigationSafetyLockout = false;
+    needsWetReset = false;
+    systemState.irrigationBursts = 0;
+    systemState.lastEvent = "WATER_RESET_AFTER_INSPECTION";
 }
 }

@@ -1,17 +1,16 @@
 #include <Arduino.h>
 
-#include "buzzer.h"
 #include "climate.h"
 #include "config.h"
 #include "connectivity.h"
 #include "fire.h"
 #include "helpers.h"
 #include "irrigation.h"
-#include "led.h"
-#include "motion.h"
 #include "pump.h"
+#include "provisioning.h"
 #include "servo.h"
 #include "simulation.h"
+#include "soil_probe.h"
 #include "state.h"
 #include "timer.h"
 
@@ -19,13 +18,23 @@ namespace
 {
 unsigned long lastStatusAt = 0;
 
+void networkTask(void *)
+{
+    for (;;)
+    {
+        connectivity::update(millis());
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
+
 void printCommandHelp()
 {
-    Serial.println("Commands: s=status, c=timed chemigation, x=stop fluids/alarm, r=reset fire lockout");
+    Serial.println("Commands: s=status, x=stop and lock pumps, r=reset safety locks, p=open protected setup Wi-Fi");
 }
 
 void handleSerial(unsigned long now)
 {
+    (void)now;
     while (Serial.available() > 0)
     {
         const char command = static_cast<char>(Serial.read());
@@ -33,29 +42,37 @@ void handleSerial(unsigned long now)
         {
         case 's':
         case 'S':
+            lockSystemState();
             printSystemStatus();
-            break;
-        case 'c':
-        case 'C':
-            if (SIMULATION_MODE)
-                Serial.println("[SIMULATION] Use the dashboard to send simulation commands.");
-            else if (!irrigation::startChemigation(now))
-                Serial.println("[CHEMIGATION] Request rejected: another operation or safety lockout is active.");
+            unlockSystemState();
             break;
         case 'x':
         case 'X':
+            lockSystemState();
             if (SIMULATION_MODE)
+            {
                 simulation::clearOverrides();
+                Serial.println("[CONTROL] Simulation overrides cleared.");
+            }
             else
             {
                 irrigation::emergencyStop();
-                motion::stop();
+                fireControl::emergencyStop();
+                Serial.println("[CONTROL] Pump outputs stopped and locked.");
             }
-            Serial.println("[CONTROL] Irrigation, chemigation and deterrent stopped.");
+            unlockSystemState();
             break;
         case 'r':
         case 'R':
+            lockSystemState();
             fireControl::resetSafetyLockout();
+            irrigation::resetSafetyLockout();
+            unlockSystemState();
+            break;
+        case 'p':
+        case 'P':
+            provisioning::requestSetup();
+            Serial.println("[SETUP] Protected setup Wi-Fi requested from physical Serial console.");
             break;
         case '?':
             printCommandHelp();
@@ -71,6 +88,13 @@ void setup()
 {
     Serial.begin(SERIAL_BAUD);
 
+    if (!initializeSystemStateLock())
+    {
+        Serial.println("[FATAL] Could not create controller state lock.");
+        while (true)
+            delay(1000);
+    }
+
     connectivity::begin();
 
     if (SIMULATION_MODE)
@@ -79,25 +103,33 @@ void setup()
     }
     else
     {
-        led::begin();
         pump::begin();
-        buzzer::begin();
         fireServo::begin();
         climate::begin();
         fireControl::begin();
         irrigation::begin();
-        motion::begin();
+        soilProbe::begin();
     }
 
-    Serial.printf("\nNight Garden controller ready (%s mode).\n",
+    Serial.printf("\nProject AVATAR controller ready (%s mode).\n",
                   SIMULATION_MODE ? "simulation" : "hardware");
     printCommandHelp();
+
+    if (xTaskCreatePinnedToCore(networkTask, "avatar-network", 12288,
+                                nullptr, 1, nullptr, 0) != pdPASS)
+    {
+        Serial.println("[FATAL] Could not start network task.");
+        pump::allOff();
+        while (true)
+            delay(1000);
+    }
 }
 
 void loop()
 {
     const unsigned long now = millis();
 
+    lockSystemState();
     if (SIMULATION_MODE)
     {
         simulation::update(now);
@@ -105,17 +137,19 @@ void loop()
     else
     {
         climate::update(now);
-        motion::update(now);
-        irrigation::update(now);
         fireControl::update(now);
+        systemState.controllerReady =
+            now >= 10000 && systemState.sensors.fireSensorReady;
+        irrigation::update(now);
     }
-
-    connectivity::update(now);
+    unlockSystemState();
     handleSerial(now);
 
     if (elapsedSince(now, lastStatusAt, STATUS_PRINT_INTERVAL))
     {
         lastStatusAt = now;
+        lockSystemState();
         printSystemStatus();
+        unlockSystemState();
     }
 }

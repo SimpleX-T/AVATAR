@@ -1,82 +1,65 @@
 #include <Arduino.h>
 
+#include "config.h"
 #include "pins.h"
 #include "pump.h"
-#include "config.h"
+
+namespace
+{
+void prepareOutput(uint8_t pin)
+{
+    digitalWrite(pin, LOW);
+    pinMode(pin, OUTPUT);
+}
+}
 
 namespace pump
 {
 
 void begin()
 {
-    pinMode(FIRE_PUMP_PIN, OUTPUT);
-    pinMode(FIRE_VALVE_PIN, OUTPUT);
-    pinMode(IRRIGATION_PUMP_PIN, OUTPUT);
-    pinMode(IRRIGATION_VALVE_PIN, OUTPUT);
-    pinMode(CHEMIGATION_PUMP_PIN, OUTPUT);
-    pinMode(CHEMIGATION_VALVE_PIN, OUTPUT);
+    prepareOutput(FIRE_PUMP_IN1_PIN);
+    prepareOutput(FIRE_PUMP_IN2_PIN);
+    prepareOutput(IRRIGATION_PUMP_IN3_PIN);
+    prepareOutput(IRRIGATION_PUMP_IN4_PIN);
 
     allOff();
 }
 
-void fireOn()
+bool fireOn()
 {
-    if (!ENABLE_PHYSICAL_OUTPUTS)
-        return;
-    digitalWrite(FIRE_PUMP_PIN, HIGH);
+    if (!ENABLE_PUMP_OUTPUTS)
+        return false;
+    digitalWrite(FIRE_PUMP_IN2_PIN, LOW);
+    digitalWrite(FIRE_PUMP_IN1_PIN, HIGH);
+    return true;
 }
 
 void fireOff()
 {
-    digitalWrite(FIRE_PUMP_PIN, LOW);
+    digitalWrite(FIRE_PUMP_IN1_PIN, LOW);
+    digitalWrite(FIRE_PUMP_IN2_PIN, LOW);
 }
 
-void valveOn()
+bool irrigationOn()
 {
-    if (!ENABLE_PHYSICAL_OUTPUTS)
-        return;
-    digitalWrite(FIRE_VALVE_PIN, HIGH);
-}
-
-void valveOff()
-{
-    digitalWrite(FIRE_VALVE_PIN, LOW);
-}
-
-void irrigationOn()
-{
-    if (!ENABLE_PHYSICAL_OUTPUTS)
-        return;
-    digitalWrite(IRRIGATION_VALVE_PIN, HIGH);
-    digitalWrite(IRRIGATION_PUMP_PIN, HIGH);
+    if (!ENABLE_PUMP_OUTPUTS)
+        return false;
+    digitalWrite(IRRIGATION_PUMP_IN4_PIN, LOW);
+    digitalWrite(IRRIGATION_PUMP_IN3_PIN, HIGH);
+    return true;
 }
 
 void irrigationOff()
 {
-    digitalWrite(IRRIGATION_PUMP_PIN, LOW);
-    digitalWrite(IRRIGATION_VALVE_PIN, LOW);
-}
-
-void chemigationOn()
-{
-    if (!ENABLE_PHYSICAL_OUTPUTS)
-        return;
-    digitalWrite(CHEMIGATION_VALVE_PIN, HIGH);
-    digitalWrite(CHEMIGATION_PUMP_PIN, HIGH);
-}
-
-void chemigationOff()
-{
-    digitalWrite(CHEMIGATION_PUMP_PIN, LOW);
-    digitalWrite(CHEMIGATION_VALVE_PIN, LOW);
+    digitalWrite(IRRIGATION_PUMP_IN3_PIN, LOW);
+    digitalWrite(IRRIGATION_PUMP_IN4_PIN, LOW);
 }
 
 void allOff()
 {
     fireOff();
-    valveOff();
     irrigationOff();
-    chemigationOff();
 }
 
 }

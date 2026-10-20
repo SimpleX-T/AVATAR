@@ -3,45 +3,54 @@
 #include "config.h"
 #include "pins.h"
 #include "servo.h"
+#include "timer.h"
 
 namespace
 {
 Servo servoMotor;
+int currentAngle = SERVO_CENTER;
+unsigned long lastMoveAt = 0;
+bool sweepingRight = true;
+
+void writeAngle(int angle)
+{
+    currentAngle = constrain(angle, SERVO_LEFT, SERVO_RIGHT);
+    servoMotor.write(currentAngle);
+}
 }
 
 namespace fireServo
 {
 void begin()
 {
-    if (!ENABLE_PHYSICAL_OUTPUTS)
-        return;
-    servoMotor.setPeriodHertz(50);
-    servoMotor.attach(FIRE_SERVO_PIN, 500, 2400);
-    center();
+    currentAngle = SERVO_LEFT;
 }
 
-void pointTo(FireDirection direction)
+void start()
 {
-    if (!ENABLE_PHYSICAL_OUTPUTS)
+    if (!ENABLE_SERVO_OUTPUT || servoMotor.attached()) return;
+    servoMotor.setPeriodHertz(50);
+    servoMotor.attach(FIRE_SERVO_PIN, 1000, 2000);
+    sweepingRight = true;
+    writeAngle(SERVO_LEFT);
+}
+
+void sweep(unsigned long now)
+{
+    if (!ENABLE_SERVO_OUTPUT || !elapsedSince(now, lastMoveAt, FIRE_SWEEP_STEP_INTERVAL))
         return;
-    switch (direction)
-    {
-    case FireDirection::Left:
-        servoMotor.write(SERVO_LEFT);
-        break;
-    case FireDirection::Right:
-        servoMotor.write(SERVO_RIGHT);
-        break;
-    default:
-        servoMotor.write(SERVO_CENTER);
-        break;
-    }
+
+    lastMoveAt = now;
+    const int target = sweepingRight ? SERVO_RIGHT : SERVO_LEFT;
+    const int delta = sweepingRight ? FIRE_SWEEP_STEP_DEGREES : -FIRE_SWEEP_STEP_DEGREES;
+    writeAngle(currentAngle + delta);
+    if (currentAngle == target)
+        sweepingRight = !sweepingRight;
 }
 
 void center()
 {
-    if (!ENABLE_PHYSICAL_OUTPUTS)
-        return;
-    servoMotor.write(SERVO_CENTER);
+    if (servoMotor.attached()) servoMotor.detach();
+    currentAngle = SERVO_LEFT;
 }
 }

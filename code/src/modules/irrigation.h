@@ -3,7 +3,8 @@
 namespace irrigation
 {
 void begin();
+void preemptByFire(unsigned long now);
 void update(unsigned long now);
-bool startChemigation(unsigned long now);
 void emergencyStop();
+void resetSafetyLockout();
 }

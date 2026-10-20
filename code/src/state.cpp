@@ -1,18 +1,27 @@
 #include "state.h"
 
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+
 SystemState systemState;
 
-const char *fireDirectionName(FireDirection direction)
+namespace
 {
-    switch (direction)
-    {
-    case FireDirection::Left:
-        return "left";
-    case FireDirection::Center:
-        return "center";
-    case FireDirection::Right:
-        return "right";
-    default:
-        return "none";
-    }
+SemaphoreHandle_t stateMutex = nullptr;
+}
+
+bool initializeSystemStateLock()
+{
+    stateMutex = xSemaphoreCreateMutex();
+    return stateMutex != nullptr;
+}
+
+void lockSystemState()
+{
+    xSemaphoreTake(stateMutex, portMAX_DELAY);
+}
+
+void unlockSystemState()
+{
+    xSemaphoreGive(stateMutex);
 }

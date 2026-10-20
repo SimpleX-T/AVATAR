@@ -4,17 +4,11 @@ namespace pump
 {
     void begin();
 
-    void fireOn();
+    bool fireOn();
     void fireOff();
 
-    void valveOn();
-    void valveOff();
-
-    void irrigationOn();
+    bool irrigationOn();
     void irrigationOff();
-
-    void chemigationOn();
-    void chemigationOff();
 
     void allOff();
 }

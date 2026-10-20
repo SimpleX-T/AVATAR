@@ -2,10 +2,12 @@
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
 #include <WiFi.h>
+#include <WebSocketsClient.h>
 
 #include "config.h"
 #include "connectivity.h"
 #include "pins.h"
+#include "provisioning.h"
 #include "secrets.h"
 #include "simulation.h"
 #include "state.h"
@@ -15,22 +17,63 @@ namespace
 {
 unsigned long lastWifiAttemptAt = 0;
 unsigned long lastTelemetryAt = 0;
+unsigned long lastAlertAttemptAt = 0;
+String lastSentEvent = "BOOT";
 unsigned long lastCommandPollAt = 0;
+unsigned long lastSocketAttemptAt = 0;
+WebSocketsClient deviceSocket;
+bool socketConnected = false;
+bool socketInitialized = false;
+bool wifiAnnounced = false;
+
+void onSocketEvent(WStype_t type, uint8_t *, size_t)
+{
+    if (type == WStype_CONNECTED)
+    {
+        socketConnected = true;
+        Serial.println("[WS] Device stream connected.");
+    }
+    else if (type == WStype_DISCONNECTED)
+    {
+        socketConnected = false;
+        Serial.println("[WS] Device stream disconnected.");
+    }
+}
+
+void connectSocket(unsigned long now)
+{
+    if (socketInitialized || !elapsedSince(now, lastSocketAttemptAt, WEBSOCKET_RECONNECT_INTERVAL))
+        return;
+
+    lastSocketAttemptAt = now;
+    String endpoint = SERVER_BASE_URL;
+    endpoint.replace("http://", "");
+    const int colon = endpoint.lastIndexOf(':');
+    const String host = colon >= 0 ? endpoint.substring(0, colon) : endpoint;
+    const uint16_t serverPort = colon >= 0 ? endpoint.substring(colon + 1).toInt() : 80;
+    const String headers = String("Authorization: Bearer ") + DEVICE_TOKEN + "\r\n";
+    deviceSocket.begin(host.c_str(), serverPort, "/ws/device");
+    deviceSocket.setExtraHeaders(headers.c_str());
+    deviceSocket.onEvent(onSocketEvent);
+    deviceSocket.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL);
+    deviceSocket.enableHeartbeat(15000, 3000, 2);
+    socketInitialized = true;
+}
 
 void setConnectionLed(bool connected)
 {
-    digitalWrite(ONBOARD_LED_PIN, connected ? HIGH : LOW);
+    digitalWrite(STATUS_LED_PIN, connected ? HIGH : LOW);
 }
 
 void connectWifi(unsigned long now)
 {
+    if (!provisioning::hasCredentials() || provisioning::isConnecting()) return;
     if (!elapsedSince(now, lastWifiAttemptAt, WIFI_RETRY_INTERVAL))
         return;
 
     lastWifiAttemptAt = now;
-    Serial.printf("[WIFI] Connecting to %s...\n", WIFI_SSID);
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    Serial.printf("[WIFI] Connecting to %s...\n", provisioning::ssid().c_str());
+    WiFi.begin(provisioning::ssid().c_str(), provisioning::password().c_str());
 }
 
 void addAuthorization(HTTPClient &http)
@@ -38,17 +81,12 @@ void addAuthorization(HTTPClient &http)
     http.addHeader("Authorization", String("Bearer ") + DEVICE_TOKEN);
 }
 
-void sendTelemetry()
+bool sendTelemetry()
 {
-    HTTPClient http;
-    const String url = String(SERVER_BASE_URL) + "/api/device/telemetry";
-    http.setTimeout(HTTP_TIMEOUT);
-
-    if (!http.begin(url))
-        return;
-
-    addAuthorization(http);
-    http.addHeader("Content-Type", "application/json");
+    SystemState snapshot;
+    lockSystemState();
+    snapshot = systemState;
+    unlockSystemState();
 
     JsonDocument document;
     document["deviceId"] = DEVICE_ID;
@@ -57,30 +95,72 @@ void sendTelemetry()
     document["wifiRssi"] = WiFi.RSSI();
 
     JsonObject readings = document["readings"].to<JsonObject>();
-    readings["temperatureC"] = systemState.sensors.temperatureC;
-    readings["humidityPercent"] = systemState.sensors.humidityPercent;
-    readings["soilRaw"] = systemState.sensors.soilRaw;
-    readings["lightRaw"] = systemState.sensors.lightRaw;
-    readings["motionDetected"] = systemState.sensors.motionDetected;
-    readings["flameLeftRaw"] = systemState.sensors.flameLeftRaw;
-    readings["flameCenterRaw"] = systemState.sensors.flameCenterRaw;
-    readings["flameRightRaw"] = systemState.sensors.flameRightRaw;
+    readings["temperatureC"] = snapshot.sensors.temperatureC;
+    readings["humidityPercent"] = snapshot.sensors.humidityPercent;
+    readings["soilRaw"] = snapshot.sensors.soilRaw;
+    readings["soilValid"] = snapshot.sensors.soilValid;
+    readings["soilDry"] = snapshot.sensors.soilDry;
+    readings["soilSensorEnabled"] = snapshot.sensors.soilSensorEnabled;
+    readings["fireDetected"] = snapshot.sensors.fireDetected;
+    readings["fireRawLow"] = snapshot.sensors.fireRawLow;
+    readings["fireSensorReady"] = snapshot.sensors.fireSensorReady;
+    readings["fireSensorEnabled"] = snapshot.sensors.fireSensorEnabled;
+    if (snapshot.sensors.mq6Raw >= 0) readings["mq6Raw"] = snapshot.sensors.mq6Raw;
+    if (snapshot.sensors.mq6Digital >= 0) readings["mq6Digital"] = snapshot.sensors.mq6Digital;
+    JsonObject probe = readings["probe"].to<JsonObject>();
+    JsonObject raw = probe["raw"].to<JsonObject>();
+    constexpr const char *names[5] = {"ph", "ec", "nitrogen", "phosphorus", "potassium"};
+    uint8_t validCount = 0;
+    for (uint8_t index = 0; index < 5; ++index)
+    {
+        if (snapshot.sensors.probeValid[index] &&
+            millis() - snapshot.sensors.probeLastGoodAt[index] <= 180000)
+        {
+            raw[names[index]] = snapshot.sensors.probeRaw[index];
+            ++validCount;
+        }
+    }
+    probe["validCount"] = validCount;
+    probe["validated"] = false; // Register scaling and calibration unverified.
 
     JsonObject outputs = document["outputs"].to<JsonObject>();
-    outputs["irrigation"] = systemState.irrigationActive;
-    outputs["chemigation"] = systemState.chemigationActive;
-    outputs["deterrent"] = systemState.deterrentActive;
-    outputs["fireResponse"] = systemState.fireActive;
-    outputs["fireLockout"] = systemState.fireSafetyLockout;
+    outputs["irrigation"] = snapshot.irrigationActive;
+    outputs["irrigationLockout"] = snapshot.irrigationSafetyLockout;
+    outputs["fireResponse"] = snapshot.fireActive;
+    outputs["fireLockout"] = snapshot.fireSafetyLockout;
+    outputs["waterFault"] = snapshot.irrigationSafetyLockout;
+    outputs["controllerReady"] = snapshot.controllerReady;
+    outputs["fireBursts"] = snapshot.fireBursts;
+    outputs["waterBursts"] = snapshot.irrigationBursts;
+    outputs["fireResting"] = snapshot.fireResting;
+    outputs["waterSoaking"] = snapshot.irrigationSoaking;
+    outputs["lastEvent"] = snapshot.lastEvent;
 
     String body;
+    if (socketConnected)
+    {
+        JsonDocument envelope;
+        envelope["type"] = "telemetry";
+        envelope["payload"].set(document);
+        serializeJson(envelope, body);
+        return deviceSocket.sendTXT(body);
+    }
+
     serializeJson(document, body);
+    HTTPClient http;
+    const String url = String(SERVER_BASE_URL) + "/api/device/telemetry";
+    http.setTimeout(HTTP_TIMEOUT);
+    if (!http.begin(url))
+        return false;
+    addAuthorization(http);
+    http.addHeader("Content-Type", "application/json");
     const int status = http.POST(body);
 
     if (status < 200 || status >= 300)
         Serial.printf("[HTTP] Telemetry failed: %d\n", status);
 
     http.end();
+    return status >= 200 && status < 300;
 }
 
 bool applyCommand(const String &payload, String &commandId, String &action)
@@ -96,21 +176,39 @@ bool applyCommand(const String &payload, String &commandId, String &action)
     commandId = String(document["commandId"] | "");
     const unsigned long now = millis();
 
-    if (action == "SIMULATE_MOTION")
-        simulation::triggerMotion(now);
-    else if (action == "SIMULATE_DRY_SOIL")
+    if (!SIMULATION_MODE && (action.startsWith("SIMULATE_") || action == "CLEAR_SIMULATION"))
+    {
+        Serial.println("[COMMAND] Simulation actions require simulation mode.");
+        return false;
+    }
+
+    lockSystemState();
+    if (action == "SIMULATE_DRY_SOIL")
         simulation::makeSoilDry();
     else if (action == "CLEAR_SIMULATION")
         simulation::clearOverrides();
     else if (action == "LED_ON")
-        digitalWrite(ONBOARD_LED_PIN, HIGH);
+        digitalWrite(STATUS_LED_PIN, HIGH);
     else if (action == "LED_OFF")
-        digitalWrite(ONBOARD_LED_PIN, LOW);
+        digitalWrite(STATUS_LED_PIN, LOW);
+    else if (action == "SET_PROFILE")
+    {
+        JsonObjectConst profile = document["profile"].as<JsonObjectConst>();
+        const bool saved = provisioning::saveProfile(
+            String(profile["name"] | ""), String(profile["farmerName"] | ""),
+            String(profile["crop"] | ""), String(profile["setupAt"] | ""),
+            String(profile["revision"] | ""));
+        unlockSystemState();
+        Serial.printf("[PROFILE] On-chip save %s.\n", saved ? "confirmed" : "failed");
+        return saved;
+    }
     else
     {
+        unlockSystemState();
         Serial.printf("[COMMAND] Rejected unknown action: %s\n", action.c_str());
         return false;
     }
+    unlockSystemState();
 
     Serial.printf("[COMMAND] Applied %s (%s)\n", action.c_str(), commandId.c_str());
     return true;
@@ -180,33 +278,59 @@ namespace connectivity
 {
 void begin()
 {
-    pinMode(ONBOARD_LED_PIN, OUTPUT);
+    pinMode(STATUS_LED_PIN, OUTPUT);
     setConnectionLed(false);
-    WiFi.setAutoReconnect(true);
+    provisioning::begin();
+    // Retry is scheduled below. Automatic retries can outlive a failed setup
+    // attempt and keep the radio too busy for the setup page's network scan.
+    WiFi.setAutoReconnect(false);
     lastWifiAttemptAt = millis() - WIFI_RETRY_INTERVAL;
+    lastTelemetryAt = millis() - TELEMETRY_INTERVAL;
 }
 
 void update(unsigned long now)
 {
+    provisioning::update(now);
     if (WiFi.status() != WL_CONNECTED)
     {
         setConnectionLed(false);
+        if (wifiAnnounced)
+        {
+            wifiAnnounced = false;
+            Serial.println("[WIFI] Connection lost; local control continues.");
+        }
         connectWifi(now);
         return;
     }
 
-    static bool announcedConnection = false;
-    if (!announcedConnection)
+    if (!wifiAnnounced)
     {
-        announcedConnection = true;
+        wifiAnnounced = true;
         setConnectionLed(true);
         Serial.printf("[WIFI] Connected. ESP32 IP: %s\n", WiFi.localIP().toString().c_str());
     }
 
-    if (elapsedSince(now, lastTelemetryAt, TELEMETRY_INTERVAL))
+    connectSocket(now);
+    deviceSocket.loop();
+
+    String eventNow;
+    lockSystemState();
+    eventNow = systemState.lastEvent;
+    unlockSystemState();
+    const bool urgentEvent = eventNow != "BOOT" && eventNow != lastSentEvent;
+    if (urgentEvent && elapsedSince(now, lastAlertAttemptAt, 2000))
+    {
+        lastAlertAttemptAt = now;
+        if (sendTelemetry())
+        {
+            lastTelemetryAt = now;
+            lastSentEvent = eventNow;
+        }
+    }
+    else if (elapsedSince(now, lastTelemetryAt, TELEMETRY_INTERVAL))
     {
         lastTelemetryAt = now;
-        sendTelemetry();
+        if (sendTelemetry()) lastSentEvent = eventNow;
     }
 
     if (elapsedSince(now, lastCommandPollAt, COMMAND_POLL_INTERVAL))

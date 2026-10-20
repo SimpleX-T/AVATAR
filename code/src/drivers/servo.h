@@ -1,10 +1,9 @@
 #pragma once
 
-#include "types.h"
-
 namespace fireServo
 {
 void begin();
-void pointTo(FireDirection direction);
+void start();
+void sweep(unsigned long now);
 void center();
 }
