@@ -8,7 +8,7 @@ constexpr char SERVER_BASE_URL[] = "http://YOUR_COMPUTER_IP:8787";
 
 // For a public backend, use https://YOUR-SERVICE.onrender.com above and copy
 // server_ca.example.h to server_ca.h with the verified root CA certificate.
-// HTTPS/WSS is disabled until that certificate is present.
+// Hosted HTTPS requests are disabled until that certificate is present.
 
 constexpr char DEVICE_ID[] = "project-avatar-001";
 constexpr char DEVICE_TOKEN[] = "replace-with-the-token-from-server-config";

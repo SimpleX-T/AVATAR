@@ -128,8 +128,8 @@ verify actual output before relying on them.
 - The firmware targets an ESP32 DevKit. Its telemetry uses one fire sensor,
   one capacitive soil sensor, DHT11, MQ-6 and raw pH/EC/N/P/K registers.
 - The currently flashed firmware sends telemetry to the Node server over the
-  LAN HTTP/WebSocket path. The source can also use verified HTTPS/WSS for a
-  hosted server, but that build has not yet been flashed. When configured, the server writes two private ThingSpeak channels and
+  LAN HTTP/WebSocket path. The hosted build uses verified HTTPS telemetry and
+  command polling. When configured, the server writes two private ThingSpeak channels and
   the dashboard reads their recorded feeds through a protected server route.
 - The local telemetry interval is 60 seconds. Networking runs in a separate
   ESP32 task, so a slow HTTP request does not pause the faster local fire and

@@ -392,8 +392,14 @@ void update(unsigned long now)
     }
 
     if (!secureTransportReady()) return;
-    connectSocket(now);
-    deviceSocket.loop();
+    // The hosted endpoint uses bounded HTTPS requests. The current ESP32
+    // WebSocket client can stall here during its cloud TLS handshake, which
+    // also delays telemetry and command polling in this network task.
+    if (!secureServer())
+    {
+        connectSocket(now);
+        deviceSocket.loop();
+    }
 
     String eventNow;
     lockSystemState();
@@ -415,7 +421,8 @@ void update(unsigned long now)
         if (sendTelemetry()) lastSentEvent = eventNow;
     }
 
-    if (elapsedSince(now, lastCommandPollAt, COMMAND_POLL_INTERVAL))
+    const unsigned long pollInterval = secureServer() ? 10000 : COMMAND_POLL_INTERVAL;
+    if (elapsedSince(now, lastCommandPollAt, pollInterval))
     {
         lastCommandPollAt = now;
         pollCommand();

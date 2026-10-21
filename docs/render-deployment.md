@@ -2,7 +2,8 @@
 
 The browser, Node server, ThingSpeak bridge, and ESP32 command endpoint run as
 one Render web service. The ESP32 continues local irrigation/fire decisions when
-the internet is unavailable. Its outgoing connection uses HTTPS and WSS; no
+the internet is unavailable. Its outgoing connection uses verified HTTPS for
+telemetry and command polling; no
 router port forwarding is required. The dashboard is served at
 `https://<service>.onrender.com/` once the service exists.
 
@@ -12,7 +13,7 @@ router port forwarding is required. The dashboard is served at
   profile and local telemetry, a health check, and secret environment fields.
 - Production refuses to start without a strong device token, Privy app
   credentials, and at least one approved Privy operator user ID.
-- The ESP32 source supports verified HTTPS/WSS and waits for its clock to sync
+- The ESP32 source supports verified HTTPS and waits for its clock to sync
   before TLS certificate checks. The currently flashed LAN build has not been
   replaced by this cloud configuration.
 
@@ -47,9 +48,10 @@ router port forwarding is required. The dashboard is served at
    `AVATAR_SECONDARY_WIFI_SSID` and `AVATAR_SECONDARY_WIFI_PASSWORD` in the
    ignored `code/include/secrets.h`; the firmware alternates networks when a
    connection attempt fails. Rebuild and flash the ESP32 over USB.
-4. Confirm serial logs show clock synchronization and WebSocket connection;
-   confirm Render `/api/health` reports `deviceStreamConnected: true` and a
-   recent device report. Test a dashboard command and its ESP32 acknowledgement.
+4. Confirm serial logs show clock synchronization; confirm Render
+   `/api/health` reports a recent device report. The hosted firmware uses
+   HTTPS telemetry and command polling while the cloud WebSocket path is under
+   investigation. Test a dashboard command and its ESP32 acknowledgement.
    Power-cycle the ESP32 and confirm reconnection without re-entering Wi-Fi.
 5. Recreate or migrate the existing farm profile on the persistent Render disk.
    Do not treat the new 12-hour report clock as continuous until that profile
