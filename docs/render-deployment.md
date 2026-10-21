@@ -24,6 +24,10 @@ router port forwarding is required. The dashboard is served at
    `PROJECT_AVATAR_DEVICE_TOKEN` must match `DEVICE_TOKEN` in the ESP32's
    ignored `code/include/secrets.h`. Set `PRIVY_APP_ID`, `PRIVY_APP_SECRET`,
    and `PROJECT_AVATAR_OPERATOR_USER_IDS` (comma-separated Privy user IDs).
+   If the first operator ID is unknown, set this field temporarily to
+   `pending-operator`: nobody can access controls with that value. A denied
+   sign-in on the new site will show the real Privy user ID; replace the
+   placeholder in Render immediately afterward.
    Add all six ThingSpeak variables if the private research archive is used.
 2. Open the Render HTTPS URL and confirm `/api/health` returns `status: ok`.
    Add that exact HTTPS origin to the Privy application's allowed domains, and
