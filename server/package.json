@@ -6,9 +6,11 @@
   "scripts": {
     "start": "node --env-file-if-exists=.env src/server.js",
     "dev": "node --env-file-if-exists=.env --watch src/server.js",
-    "build:auth": "npm --prefix client run build",
-    "check": "node --check src/server.js && node --check public/app.js && npm --prefix client run check",
-    "test:smoke": "node --env-file-if-exists=.env test/smoke.js"
+    "build:auth": "npm run build:figure && npm --prefix client run build",
+    "check": "node --check src/server.js && node --check public/app.js && node --check public/field-model.js && node --check public/figure-viewport.js && node --check public/http-response.js && npm --prefix client run check",
+    "test:smoke": "node --env-file-if-exists=.env test/smoke.js",
+    "build:figure": "node scripts/build-greenhouse.mjs",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "@privy-io/node": "^0.8.0",

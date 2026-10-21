@@ -2,7 +2,9 @@
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <WebSocketsClient.h>
+#include <time.h>
 
 #include "config.h"
 #include "connectivity.h"
@@ -12,6 +14,12 @@
 #include "simulation.h"
 #include "state.h"
 #include "timer.h"
+
+#if __has_include("server_ca.h")
+#include "server_ca.h"
+#else
+constexpr char AVATAR_SERVER_CA_PEM[] = "";
+#endif
 
 namespace
 {
@@ -25,6 +33,53 @@ WebSocketsClient deviceSocket;
 bool socketConnected = false;
 bool socketInitialized = false;
 bool wifiAnnounced = false;
+bool tlsClockStarted = false;
+bool tlsConfigurationWarned = false;
+
+bool secureServer()
+{
+    return String(SERVER_BASE_URL).startsWith("https://");
+}
+
+bool secureTransportReady()
+{
+    if (!secureServer()) return true;
+    if (strlen(AVATAR_SERVER_CA_PEM) == 0)
+    {
+        if (!tlsConfigurationWarned)
+        {
+            Serial.println("[TLS] Server CA certificate is missing; remote connection disabled.");
+            tlsConfigurationWarned = true;
+        }
+        return false;
+    }
+    if (!tlsClockStarted)
+    {
+        configTime(0, 0, "pool.ntp.org", "time.google.com");
+        tlsClockStarted = true;
+        Serial.println("[TLS] Synchronising clock for certificate checks.");
+    }
+    return time(nullptr) > 1700000000;
+}
+
+struct DeviceHttpRequest
+{
+    HTTPClient http;
+    WiFiClient clearClient;
+    WiFiClientSecure secureClient;
+
+    bool begin(const String &path)
+    {
+        const String url = String(SERVER_BASE_URL) + path;
+        if (secureServer())
+        {
+            if (!secureTransportReady()) return false;
+            secureClient.setCACert(AVATAR_SERVER_CA_PEM);
+            return http.begin(secureClient, url);
+        }
+        return http.begin(clearClient, url);
+    }
+};
 
 void onSocketEvent(WStype_t type, uint8_t *, size_t)
 {
@@ -46,13 +101,20 @@ void connectSocket(unsigned long now)
         return;
 
     lastSocketAttemptAt = now;
+    if (!secureTransportReady()) return;
     String endpoint = SERVER_BASE_URL;
-    endpoint.replace("http://", "");
+    const bool secure = secureServer();
+    endpoint.remove(0, secure ? 8 : 7);
+    const int slash = endpoint.indexOf('/');
+    if (slash >= 0) endpoint = endpoint.substring(0, slash);
     const int colon = endpoint.lastIndexOf(':');
     const String host = colon >= 0 ? endpoint.substring(0, colon) : endpoint;
-    const uint16_t serverPort = colon >= 0 ? endpoint.substring(colon + 1).toInt() : 80;
-    const String headers = String("Authorization: Bearer ") + DEVICE_TOKEN + "\r\n";
-    deviceSocket.begin(host.c_str(), serverPort, "/ws/device");
+    const uint16_t serverPort = colon >= 0 ? endpoint.substring(colon + 1).toInt() : (secure ? 443 : 80);
+    const String headers = String("Authorization: Bearer ") + DEVICE_TOKEN;
+    if (secure)
+        deviceSocket.beginSslWithCA(host.c_str(), serverPort, "/ws/device", AVATAR_SERVER_CA_PEM);
+    else
+        deviceSocket.begin(host.c_str(), serverPort, "/ws/device");
     deviceSocket.setExtraHeaders(headers.c_str());
     deviceSocket.onEvent(onSocketEvent);
     deviceSocket.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL);
@@ -147,10 +209,10 @@ bool sendTelemetry()
     }
 
     serializeJson(document, body);
-    HTTPClient http;
-    const String url = String(SERVER_BASE_URL) + "/api/device/telemetry";
+    DeviceHttpRequest request;
+    HTTPClient &http = request.http;
     http.setTimeout(HTTP_TIMEOUT);
-    if (!http.begin(url))
+    if (!request.begin("/api/device/telemetry"))
         return false;
     addAuthorization(http);
     http.addHeader("Content-Type", "application/json");
@@ -219,11 +281,11 @@ void acknowledgeCommand(const String &commandId, const String &action, bool appl
     if (commandId.isEmpty())
         return;
 
-    HTTPClient http;
-    const String url = String(SERVER_BASE_URL) + "/api/device/commands/ack";
+    DeviceHttpRequest request;
+    HTTPClient &http = request.http;
     http.setTimeout(HTTP_TIMEOUT);
 
-    if (!http.begin(url))
+    if (!request.begin("/api/device/commands/ack"))
         return;
 
     addAuthorization(http);
@@ -246,12 +308,11 @@ void acknowledgeCommand(const String &commandId, const String &action, bool appl
 
 void pollCommand()
 {
-    HTTPClient http;
-    const String url =
-        String(SERVER_BASE_URL) + "/api/device/commands/next?deviceId=" + DEVICE_ID;
+    DeviceHttpRequest request;
+    HTTPClient &http = request.http;
     http.setTimeout(HTTP_TIMEOUT);
 
-    if (!http.begin(url))
+    if (!request.begin(String("/api/device/commands/next?deviceId=") + DEVICE_ID))
         return;
 
     addAuthorization(http);
@@ -310,6 +371,7 @@ void update(unsigned long now)
         Serial.printf("[WIFI] Connected. ESP32 IP: %s\n", WiFi.localIP().toString().c_str());
     }
 
+    if (!secureTransportReady()) return;
     connectSocket(now);
     deviceSocket.loop();
 

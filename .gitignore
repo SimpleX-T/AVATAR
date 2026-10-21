@@ -3,11 +3,12 @@
 *.log
 .DS_Store
 code/include/secrets.h
+code/include/server_ca.h
 code/diagnostics/avatar_bench_test/wifi_secrets.h
 server/data/
 server/.env
-server/node_modules/
-server/client/node_modules/
+server/node_modules
+server/client/node_modules
 
 # Rebuilt from server/client with npm run build:auth
 /server/public/auth/

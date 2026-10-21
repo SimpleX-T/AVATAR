@@ -12,6 +12,8 @@ type RuntimeConfig = {
 const response = await fetch("/api/auth/config");
 const config = (await response.json()) as RuntimeConfig;
 const root = ReactDOM.createRoot(document.getElementById("root")!);
+const localSignInUrl = new URL("/auth/", window.location.href);
+localSignInUrl.hostname = "localhost";
 
 class AuthErrorBoundary extends React.Component<
   React.PropsWithChildren,
@@ -29,8 +31,9 @@ class AuthErrorBoundary extends React.Component<
       <main className="provider-error">
         <strong>Secure sign-in could not start.</strong>
         <p>
-          Open <a href="http://localhost:8788/auth/">localhost:8788</a> on this
-          computer. For access from another device, Project AVATAR must use HTTPS.
+          Open <a href={localSignInUrl.href}>{localSignInUrl.host}</a> on this
+          computer. For access from another device, Project AVATAR must use
+          HTTPS.
         </p>
       </main>
     );

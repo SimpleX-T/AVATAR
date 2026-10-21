@@ -1,305 +1,620 @@
 <!doctype html>
+<!-- Direction: a daylight field console. Real observations and local protection
+lead; a physical Anatomy greenhouse explains where each subsystem belongs.
+Setup is a resumable evidence-led flow, not a form on the monitoring screen. -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
     />
-    <meta name="theme-color" content="#f4f0e6" />
+    <meta name="theme-color" content="#203e32" />
     <title>Project AVATAR · Greenhouse Research Dashboard</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <div class="ambient-characters" aria-hidden="true">
-      <img class="ambient-character ambient-character--bird" src="/assets/characters/bird.svg" alt="" />
-      <img class="ambient-character ambient-character--rabbit" src="/assets/characters/rabbit.svg" alt="" />
-      <img class="ambient-character ambient-character--farmer" src="/assets/characters/farmer.svg" alt="" />
-      <img class="ambient-character ambient-character--snail" src="/assets/characters/snail.svg" alt="" />
-    </div>
-
-    <header class="site-header">
-      <a class="brand" href="/" aria-label="Project AVATAR dashboard home">
-        <span class="brand__mark" aria-hidden="true">AV</span>
-        <span>
-          <strong>Project AVATAR</strong>
-          <small>Agricultural Vision &amp; Automated Response</small>
-        </span>
-      </a>
-
-      <div class="connection-stamp" id="connection" role="status">
-        <span class="connection-stamp__light" aria-hidden="true"></span>
-        <span>
-          <small>ESP32 CONNECTION</small>
-          <strong id="connection-label">WAITING FOR DATA</strong>
-        </span>
-      </div>
-      <button class="operator-signout" id="operator-signout" type="button">
-        Sign out
-      </button>
-    </header>
-
-    <main>
-      <section class="page-intro" aria-labelledby="dashboard-title">
+    <a class="skip-link" href="#main">Skip to greenhouse</a>
+    <aside class="sidebar">
+      <a class="brand" href="#overview" aria-label="AVATAR home"
+        ><svg viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M5 25 16 5l11 20M10 17h12M16 5v22" /></svg
+        ><span
+          >avatar<span class="brand-dot">.</span
+          ><small>YOUR FIELD, CONNECTED</small></span
+        ></a
+      >
+      <div class="field-switch">
+        <span class="field-avatar">⌂</span>
         <div>
-          <p class="section-code">LIVE MONITOR / DEVICE 001</p>
-          <h1 id="dashboard-title">Greenhouse conditions at a glance</h1>
+          <strong id="sidebar-farm">Your greenhouse</strong
+          ><small>Research field station</small>
         </div>
-        <p class="intro-copy" id="intro-copy">
-          Latest readings from the field unit. The time shown with each update
-          tells you how recent the information is.
-        </p>
-      </section>
-
-      <section class="farm-profile" aria-labelledby="farm-profile-title">
-        <div class="farm-profile__copy">
-          <p class="section-code">YOUR GREENHOUSE / RESEARCH RECORD</p>
-          <h2 id="farm-profile-title">Give this greenhouse a name</h2>
-          <p>These details appear on your report. The 12-hour clock starts when the ESP32 confirms it has saved them.</p>
-          <p class="farm-profile__status" id="farm-profile-status" role="status">Loading farm setup…</p>
-          <button type="button" id="open-report" disabled>Print 12-hour report</button>
-        </div>
-        <form id="farm-profile-form" class="farm-profile__form">
-          <label for="farm-name">Greenhouse name</label>
-          <input id="farm-name" name="name" autocomplete="organization" maxlength="80" required />
-          <label for="farmer-name">Your name</label>
-          <input id="farmer-name" name="farmerName" autocomplete="name" maxlength="80" required />
-          <label for="farm-crop">Main crop <span>(optional)</span></label>
-          <input id="farm-crop" name="crop" maxlength="80" />
-          <button type="submit">Save greenhouse details</button>
-        </form>
-      </section>
-
-      <section class="metric-grid" aria-label="Current environmental readings">
-        <article class="metric metric--yellow">
-          <div class="metric__header">
-            <h2>Air temperature</h2>
-            <span class="metric__state" id="temperature-state">WAITING</span>
-          </div>
-          <p class="metric__reading">
-            <strong id="temperature-value">—</strong><span>°C</span>
-          </p>
-          <p class="metric__explanation">Temperature around the crop area.</p>
-        </article>
-
-        <article class="metric metric--blue">
-          <div class="metric__header">
-            <h2>Air humidity</h2>
-            <span class="metric__state" id="humidity-state">WAITING</span>
-          </div>
-          <p class="metric__reading">
-            <strong id="humidity-value">—</strong><span>%</span>
-          </p>
-          <p class="metric__explanation">Moisture currently present in the air.</p>
-        </article>
-
-        <article class="metric metric--green">
-          <div class="metric__header">
-            <h2>Soil moisture</h2>
-            <span class="metric__state" id="soil-state">WAITING</span>
-          </div>
-          <p class="metric__reading">
-            <strong id="soil-value">—</strong><span>ADC</span>
-          </p>
-          <p class="metric__explanation" id="soil-explanation">
-            Waiting for the soil reading.
-          </p>
-        </article>
-
-        <article class="metric metric--paper">
-          <div class="metric__header">
-            <h2>Device status</h2>
-            <span class="metric__state" id="device-state">OFFLINE</span>
-          </div>
-          <p class="metric__reading metric__reading--word">
-            <strong id="device-word">WAIT</strong>
-          </p>
-          <p class="metric__explanation" id="last-seen">
-            No transmission received.
-          </p>
-        </article>
-      </section>
-
-      <section class="field-section">
-        <article class="field-visual">
-          <div class="panel-heading">
-            <div>
-              <p class="section-code">SYSTEM FLOW</p>
-              <h2>How the field station is behaving</h2>
-            </div>
-            <span class="simulation-label">FIELD STATION</span>
-          </div>
-
-          <canvas
-            id="field-canvas"
-            role="img"
-            aria-label="Animated diagram showing the ESP32 receiving field readings and sending them to the dashboard"
-          ></canvas>
-
-          <p class="canvas-description">
-            The ESP32 collects field readings and makes local protection
-            decisions. The server records them in private ThingSpeak channels
-            when cloud access is configured.
-          </p>
-        </article>
-
-        <article class="interpretation-panel" aria-labelledby="interpretation-title">
-          <div class="panel-heading panel-heading--compact">
-            <div>
-              <p class="section-code">PLAIN-LANGUAGE SUMMARY</p>
-              <h2 id="interpretation-title">What the readings mean</h2>
-            </div>
-          </div>
-
-          <dl class="interpretation-list">
-            <div>
-              <dt>Soil condition</dt>
-              <dd id="soil-summary">Waiting for a reading.</dd>
-            </div>
-            <div>
-              <dt>Fire detector</dt>
-              <dd id="fire-summary">Waiting for a reading.</dd>
-            </div>
-            <div>
-              <dt>Wi-Fi signal</dt>
-              <dd id="signal-summary">Waiting for a reading.</dd>
-            </div>
-          </dl>
-
-          <div class="overall-status" id="overall-status">
-            <span aria-hidden="true">!</span>
-            <p>
-              <strong>System waiting</strong>
-              Start the ESP32 to receive the first transmission.
-            </p>
-          </div>
-        </article>
-      </section>
-
-      <section class="controls-section" aria-labelledby="controls-title">
-        <div class="section-heading">
-          <div>
-            <p class="section-code">SAFE DEMONSTRATION CONTROLS</p>
-            <h2 id="controls-title">Test the system without sensors</h2>
-          </div>
-          <p id="controls-explanation">
-            Simulation controls become available when the field unit is running
-            in simulation mode. Pump and servo controls are disabled.
+      </div>
+      <nav aria-label="Main navigation">
+        <a href="#overview" data-nav="overview"
+          ><svg><use href="/assets/field/icons.svg#overview" /></svg
+          ><span class="nav-label">Overview</span
+          ><span class="mobile-nav-label">Overview</span></a
+        >
+        <a href="#readings" data-nav="readings"
+          ><svg><use href="/assets/field/icons.svg#readings" /></svg
+          ><span class="nav-label">Sensor readings</span
+          ><span class="mobile-nav-label">Sensors</span></a
+        >
+        <a href="#activity" data-nav="activity"
+          ><svg><use href="/assets/field/icons.svg#activity" /></svg
+          ><span class="nav-label">Activity</span
+          ><span class="mobile-nav-label">Activity</span></a
+        >
+        <a href="#reports" data-nav="reports"
+          ><svg><use href="/assets/field/icons.svg#reports" /></svg
+          ><span class="nav-label">Research reports</span
+          ><span class="mobile-nav-label">Reports</span></a
+        >
+        <span class="nav-separator"></span>
+        <a href="#setup" data-nav="setup"
+          ><svg><use href="/assets/field/icons.svg#setup" /></svg
+          ><span class="nav-label">Greenhouse setup</span
+          ><span class="mobile-nav-label">Setup</span
+          ><span
+            id="setup-nav-dot"
+            class="nav-dot"
+            title="Setup incomplete"
+          ></span
+        ></a>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="local-assurance">
+          <svg><use href="/assets/field/icons.svg#shield" /></svg
+          ><strong>Protection stays in the field</strong>
+          <p>
+            Your ESP32 makes local decisions, even when this dashboard is
+            offline.
           </p>
         </div>
-
-        <div class="command-grid">
-          <button type="button" data-action="SIMULATE_DRY_SOIL" disabled>
-            <span class="command__illustration" aria-hidden="true">
-              <img src="/assets/generated/soil-sensor.webp" alt="" />
-            </span>
-            <span>
-              <strong>Simulate dry soil</strong>
-              <small>Raises the soil reading above the irrigation threshold.</small>
-            </span>
-          </button>
-
-          <button type="button" data-action="LED_ON">
-            <span class="command__illustration" aria-hidden="true">
-              <img src="/assets/generated/esp32-led.webp" alt="" />
-            </span>
-            <span>
-              <strong>Turn status LED on</strong>
-              <small>Switches on the external status LED on GPIO22.</small>
-            </span>
-          </button>
-
-          <button
-            type="button"
-            data-action="CLEAR_SIMULATION"
-            class="command--secondary"
-            disabled
+        <button id="operator-signout" class="signout">
+          <svg><use href="/assets/field/icons.svg#logout" /></svg>Sign out</button
+        ><span class="sidebar-credit">PROJECT AVATAR · GROUP A27H</span>
+      </div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar">
+        <span id="breadcrumb">Workspace / Overview</span>
+        <div class="topbar-right">
+          <span id="network-status" class="connection-chip"
+            >Checking field unit</span
+          ><button
+            id="refresh"
+            class="icon-button"
+            aria-label="Refresh readings"
           >
-            <span class="command__illustration" aria-hidden="true">
-              <img src="/assets/generated/reset-button.webp" alt="" />
-            </span>
-            <span>
-              <strong>Reset simulation</strong>
-              <small>Returns every simulated condition to its normal state.</small>
-            </span>
-          </button>
+            <svg><use href="/assets/field/icons.svg#refresh" /></svg></button
+          ><button
+            id="operator-signout-mobile"
+            class="icon-button mobile-signout"
+            aria-label="Sign out"
+          >
+            <svg><use href="/assets/field/icons.svg#logout" /></svg></button
+          ><span class="operator-avatar" title="Greenhouse operator">AV</span>
         </div>
-      </section>
-
-      <section class="details-grid">
-        <article class="system-details">
-          <div class="panel-heading panel-heading--compact">
+      </header>
+      <main id="main" tabindex="-1">
+        <div id="page-error" class="notice danger" role="alert" hidden></div>
+        <section data-view="overview" class="view">
+          <div class="page-heading">
             <div>
-              <p class="section-code">TECHNICAL DETAILS</p>
-              <h2>Device information</h2>
+              <p class="eyebrow" id="overview-date">Your field station</p>
+              <h1 id="greenhouse-heading">
+                Your greenhouse,<br /><em>in view.</em>
+              </h1>
+              <p id="overview-summary" class="lede">
+                A clearer picture of what is happening around your crops.
+              </p>
+            </div>
+            <div class="heading-actions">
+              <span id="last-updated">Waiting for first reading</span
+              ><button class="button secondary" data-go="setup">
+                <svg><use href="/assets/field/icons.svg#setup" /></svg>Manage
+                greenhouse
+              </button>
             </div>
           </div>
-
-          <table>
-            <tbody>
-              <tr>
-                <th scope="row">Device identifier</th>
-                <td id="device-id-value">project-avatar-001</td>
-              </tr>
-              <tr>
-                <th scope="row">Operating mode</th>
-                <td id="mode-value">—</td>
-              </tr>
-              <tr>
-                <th scope="row">Wi-Fi strength</th>
-                <td id="rssi-value">—</td>
-              </tr>
-              <tr>
-                <th scope="row">Fire response</th>
-                <td id="fire-value">—</td>
-              </tr>
-              <tr>
-                <th scope="row">Recorded source</th>
-                <td id="data-source-value">—</td>
-              </tr>
-              <tr>
-                <th scope="row">Soil probe</th>
-                <td id="probe-value">—</td>
-              </tr>
-              <tr>
-                <th scope="row">MQ-6 atmosphere signal</th>
-                <td id="gas-value">—</td>
-              </tr>
-              <tr>
-                <th scope="row">Water response</th>
-                <td id="water-value">—</td>
-              </tr>
-            </tbody>
-          </table>
-        </article>
-
-        <article class="transmission-log">
-          <div class="panel-heading panel-heading--compact log-heading">
+          <div id="setup-nudge" class="setup-nudge" hidden>
             <div>
-              <p class="section-code">RECENT ACTIVITY</p>
-              <h2>Transmission log</h2>
+              <strong>Let’s make this greenhouse yours.</strong>
+              <p>
+                Check your field unit, add its details, and confirm the
+                connection.
+              </p>
             </div>
-            <div class="log-actions" aria-label="Transmission log actions">
-              <button type="button" id="copy-logs">Copy logs</button>
-              <button type="button" id="download-logs">Download CSV</button>
+            <button class="button" data-go="setup">
+              Finish setup <span aria-hidden="true">↗</span>
+            </button>
+          </div>
+          <div id="field-alert" class="notice" role="status" hidden></div>
+          <section
+            class="measurements"
+            aria-label="Latest environmental readings"
+          >
+            <article>
+              <div class="measurement-title">
+                <svg><use href="/assets/field/icons.svg#temperature" /></svg>
+                <h2>Air temperature</h2>
+              </div>
+              <div class="measurement-value">
+                <strong id="temperature-value">—</strong><span>°C</span>
+              </div>
+              <p id="temperature-note">Waiting for sensor</p>
+            </article>
+            <article>
+              <div class="measurement-title">
+                <svg><use href="/assets/field/icons.svg#droplet" /></svg>
+                <h2>Air humidity</h2>
+              </div>
+              <div class="measurement-value">
+                <strong id="humidity-value">—</strong><span>%</span>
+              </div>
+              <p id="humidity-note">Waiting for sensor</p>
+            </article>
+            <article>
+              <div class="measurement-title">
+                <svg><use href="/assets/field/icons.svg#sprout" /></svg>
+                <h2>Soil moisture</h2>
+              </div>
+              <div class="measurement-value">
+                <strong id="soil-value">—</strong><span>ADC</span>
+              </div>
+              <p id="soil-note">Waiting for sensor</p>
+            </article>
+            <article>
+              <div class="measurement-title">
+                <svg><use href="/assets/field/icons.svg#signal" /></svg>
+                <h2>Field connection</h2>
+              </div>
+              <div class="measurement-value word">
+                <strong id="connection-value">Waiting</strong>
+              </div>
+              <p id="connection-note">No recent report</p>
+            </article>
+          </section>
+          <div class="overview-grid">
+            <section class="panel greenhouse-panel">
+              <div class="panel-title">
+                <div>
+                  <h2>Your greenhouse, connected</h2>
+                  <p>Select a system to see what it is doing.</p>
+                </div>
+                <span class="small-badge">SYSTEM SCHEMATIC</span>
+              </div>
+              <div class="figure-toolbar">
+                <div class="figure-controls" role="group" aria-label="Schematic zoom">
+                  <button id="figure-zoom-out" type="button" aria-label="Zoom out" title="Zoom out">−</button>
+                  <output id="figure-zoom-level" aria-label="Zoom level">100%</output>
+                  <button id="figure-zoom-in" type="button" aria-label="Zoom in" title="Zoom in">+</button>
+                  <button id="figure-reset" type="button" aria-label="Reset view" title="Reset view">↺</button>
+                </div>
+              </div>
+              <div
+                id="figure-stage"
+                class="figure-stage"
+                role="region"
+                tabindex="0"
+                aria-label="Greenhouse schematic. Scroll or pinch to zoom, drag or use arrow keys to pan. Press 0 to reset."
+              >
+                <object
+                  id="greenhouse-figure"
+                  data="/assets/field/greenhouse.svg"
+                  type="image/svg+xml"
+                  aria-label="Cutaway schematic of the greenhouse and its field controller"
+                >
+                  <img
+                    src="/assets/field/greenhouse.svg"
+                    alt="Cutaway schematic of the greenhouse and its field controller"
+                  />
+                </object>
+                <span class="figure-hint" aria-hidden="true"><span class="figure-hint-desktop">SCROLL TO ZOOM · DRAG TO MOVE</span><span class="figure-hint-touch">PINCH TO ZOOM · DRAG TO MOVE</span></span>
+              </div>
+              <div
+                class="system-tabs"
+                role="group"
+                aria-label="Inspect greenhouse system"
+              >
+                <button data-system="controller" aria-pressed="true">
+                  Field unit</button
+                ><button data-system="soil" aria-pressed="false">Soil</button
+                ><button data-system="irrigation" aria-pressed="false">
+                  Irrigation</button
+                ><button data-system="fire" aria-pressed="false">
+                  Protection</button
+                ><button data-system="climate" aria-pressed="false">
+                  Climate
+                </button>
+              </div>
+              <div class="figure-readout">
+                <span id="system-readout-title">ESP32 field unit</span>
+                <p id="system-readout">
+                  Waiting for a recent field report. The illustration is a
+                  schematic, not a live camera.
+                </p>
+              </div>
+            </section>
+            <section class="panel protection-panel">
+              <div class="panel-title">
+                <div>
+                  <h2>Field protection</h2>
+                  <p>Local decisions. Clear status.</p>
+                </div>
+                <svg><use href="/assets/field/icons.svg#shield" /></svg>
+              </div>
+              <div class="protection-row">
+                <span class="system-icon"
+                  ><svg><use href="/assets/field/icons.svg#flame" /></svg
+                ></span>
+                <div>
+                  <h3>Fire response</h3>
+                  <p id="fire-detail">Waiting for detector</p>
+                </div>
+                <span id="fire-badge" class="status-badge">Unknown</span>
+              </div>
+              <div class="protection-row">
+                <span class="system-icon"
+                  ><svg><use href="/assets/field/icons.svg#droplet" /></svg
+                ></span>
+                <div>
+                  <h3>Irrigation</h3>
+                  <p id="water-detail">Waiting for soil sensor</p>
+                </div>
+                <span id="water-badge" class="status-badge">Unknown</span>
+              </div>
+              <div class="protection-row">
+                <span class="system-icon"
+                  ><svg><use href="/assets/field/icons.svg#air" /></svg
+                ></span>
+                <div>
+                  <h3>Atmosphere</h3>
+                  <p id="gas-detail">MQ-6 · uncalibrated signal</p>
+                </div>
+                <span id="gas-badge" class="status-badge">No data</span>
+              </div>
+              <div class="protection-note">
+                <span class="dot"></span>
+                <p id="local-control-note">
+                  Local protection status will appear with the next device
+                  report. Pump status describes commands, not confirmed water
+                  flow.
+                </p>
+              </div>
+              <button class="text-link" data-go="readings">
+                Inspect all sensor readings <span>↗</span>
+              </button>
+            </section>
+          </div>
+          <div class="lower-grid">
+            <section class="panel trend-panel">
+              <div class="panel-title">
+                <div>
+                  <h2>Recent environment</h2>
+                  <p id="trend-caption">
+                    Actual observations received by this server
+                  </p>
+                </div>
+                <span class="chart-legend"><i></i>Temperature</span>
+              </div>
+              <div id="trend" class="trend-empty">
+                Two valid temperature observations are needed to show a trend.
+              </div>
+            </section>
+            <section class="panel report-preview">
+              <svg class="report-icon">
+                <use href="/assets/field/icons.svg#reports" />
+              </svg>
+              <p class="eyebrow">YOUR RESEARCH RECORD</p>
+              <h2>A day in your greenhouse.</h2>
+              <p id="report-summary">
+                Your first report becomes available after 12 hours of confirmed
+                setup.
+              </p>
+              <button class="text-link" data-go="reports">
+                View research reports <span>↗</span>
+              </button>
+            </section>
+          </div>
+        </section>
+        <section data-view="setup" class="view" hidden>
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">A GOOD START, ONE STEP AT A TIME</p>
+              <h1>Meet your<br /><em>greenhouse.</em></h1>
+              <p class="lede">
+                Connect the field unit to a greenhouse you recognise.
+              </p>
+            </div>
+            <button class="text-link" data-go="overview">
+              Back to overview ↗
+            </button>
+          </div>
+          <div class="setup-layout">
+            <ol class="step-list" id="setup-steps">
+              <li data-step="1">
+                <span>1</span>
+                <div>
+                  <strong>Find your field unit</strong>
+                  <p>Confirm a recent ESP32 reading.</p>
+                </div>
+              </li>
+              <li data-step="2">
+                <span>2</span>
+                <div>
+                  <strong>Make it yours</strong>
+                  <p>Name your greenhouse.</p>
+                </div>
+              </li>
+              <li data-step="3">
+                <span>3</span>
+                <div>
+                  <strong>Confirm and grow</strong>
+                  <p>Verify the details on your device.</p>
+                </div>
+              </li>
+            </ol>
+            <div class="setup-workspace panel">
+              <div id="setup-step-1">
+                <span class="small-badge">STEP 1 OF 3</span>
+                <h2>A little power.<br />A real connection.</h2>
+                <p>
+                  Turn on the ESP32 using its normal supply. It connects to the
+                  configured Wi-Fi automatically.
+                </p>
+                <div class="device-evidence">
+                  <svg><use href="/assets/field/icons.svg#controller" /></svg>
+                  <div>
+                    <strong id="setup-device-name"
+                      >Looking for the field unit</strong
+                    >
+                    <p id="setup-device-status" role="status">
+                      Waiting for a recent hardware reading…
+                    </p>
+                  </div>
+                  <span id="setup-device-badge" class="status-badge"
+                    >Waiting</span
+                  >
+                </div>
+                <details>
+                  <summary>Not seeing your field unit?</summary>
+                  <p>
+                    Keep the ESP32 and this server on the same Wi-Fi. The ESP32
+                    currently uses Wi-Fi credentials configured before upload.
+                    Local protection continues even if this page cannot connect.
+                  </p>
+                </details>
+                <button id="setup-continue" class="button" disabled>
+                  Continue to greenhouse details <span>→</span>
+                </button>
+                <p class="quiet">
+                  No pumps will be activated by this setup flow.
+                </p>
+              </div>
+              <div id="setup-step-2" hidden>
+                <span class="small-badge">STEP 2 OF 3</span>
+                <h2>A name that<br />feels like yours.</h2>
+                <p>
+                  These details identify your greenhouse in observations and
+                  research reports.
+                </p>
+                <form id="farm-profile-form">
+                  <label for="farm-name">Greenhouse name</label
+                  ><input
+                    id="farm-name"
+                    name="name"
+                    maxlength="80"
+                    autocomplete="organization"
+                    placeholder="e.g. East greenhouse"
+                    required
+                  /><label for="farmer-name">Your name</label
+                  ><input
+                    id="farmer-name"
+                    name="farmerName"
+                    maxlength="80"
+                    autocomplete="name"
+                    placeholder="What should we call you?"
+                    required
+                  /><label for="farm-crop"
+                    >Main crop <span>Optional</span></label
+                  ><input
+                    id="farm-crop"
+                    name="crop"
+                    maxlength="80"
+                    placeholder="e.g. Tomato"
+                  />
+                  <div
+                    id="setup-save-error"
+                    class="form-error"
+                    role="alert"
+                    hidden
+                  ></div>
+                  <div class="form-actions">
+                    <button
+                      type="button"
+                      id="setup-back"
+                      class="button secondary"
+                    >
+                      Back</button
+                    ><button type="submit" class="button" id="setup-save">
+                      Save to field unit <span>→</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+              <div id="setup-step-3" hidden>
+                <span class="small-badge">STEP 3 OF 3</span>
+                <h2 id="setup-confirm-title">
+                  Making the<br />connection stick.
+                </h2>
+                <p id="setup-confirm-copy">
+                  The server has your details. Waiting for the ESP32 to confirm
+                  it has saved the same profile.
+                </p>
+                <ul class="confirmation-list">
+                  <li>Greenhouse details saved on server <span>✓</span></li>
+                  <li>
+                    Matching profile saved on ESP32
+                    <span id="profile-ack">Waiting</span>
+                  </li>
+                  <li>
+                    Recent physical sensor report
+                    <span id="fresh-ack">Waiting</span>
+                  </li>
+                </ul>
+                <p id="setup-confirm-status" role="status"></p>
+                <div class="form-actions">
+                  <button class="button secondary" id="setup-edit">
+                    Edit details</button
+                  ><button class="button" id="setup-finish" disabled>
+                    Open my greenhouse <span>↗</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-          <ol id="event-log" aria-live="polite">
-            <li class="log-empty">No activity recorded yet.</li>
-          </ol>
-        </article>
-      </section>
-    </main>
-
-    <footer>
-      <strong>PROJECT AVATAR / GROUP A27H</strong>
-      <span>Off-grid greenhouse farming research prototype</span>
-      <a href="https://openmoji.org/" target="_blank" rel="noreferrer">
-        Character artwork: OpenMoji · CC BY-SA 4.0
-      </a>
-    </footer>
-
-    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+        </section>
+        <section data-view="readings" class="view" hidden>
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">FROM THE FIELD</p>
+              <h1>Read the<br /><em>whole picture.</em></h1>
+              <p class="lede">
+                Physical observations, their source, and what is still unknown.
+              </p>
+            </div>
+            <span class="small-badge" id="readings-source"
+              >Waiting for field unit</span
+            >
+          </div>
+          <section class="panel readings-panel">
+            <div class="panel-title">
+              <h2>Sensor observations</h2>
+              <span id="readings-timestamp">No report yet</span>
+            </div>
+            <div id="sensor-rows" class="sensor-rows"></div>
+            <div class="reading-disclaimer">
+              Soil-probe numbers are raw register values with unverified
+              scaling. MQ-6 values are uncalibrated signals, not a gas
+              concentration or safety assessment.
+            </div>
+          </section>
+          <section class="panel device-panel">
+            <div class="panel-title">
+              <h2>Field unit &amp; safe controls</h2>
+              <span id="device-mode">Unknown mode</span>
+            </div>
+            <dl class="device-facts">
+              <div>
+                <dt>Device identifier</dt>
+                <dd id="device-id">—</dd>
+              </div>
+              <div>
+                <dt>Wi-Fi signal</dt>
+                <dd id="device-rssi">—</dd>
+              </div>
+              <div>
+                <dt>Cloud history</dt>
+                <dd id="cloud-state">Checking…</dd>
+              </div>
+            </dl>
+            <p class="quiet">
+              Use the status LED to identify your unit. Pump and servo actions
+              stay under the local safety controller.
+            </p>
+            <div class="form-actions">
+              <button class="button secondary" data-action="LED_ON" disabled>
+                Turn status LED on</button
+              ><button class="button secondary" data-action="LED_OFF" disabled>
+                Turn status LED off
+              </button>
+            </div>
+            <p id="command-status" role="status" class="quiet"></p>
+          </section>
+        </section>
+        <section data-view="activity" class="view" hidden>
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">A RECORD YOU CAN FOLLOW</p>
+              <h1>What happened<br /><em>in the field.</em></h1>
+              <p class="lede">
+                Readings, connection changes, and acknowledged actions.
+              </p>
+            </div>
+            <div class="form-actions">
+              <button id="copy-logs" class="button secondary">Copy log</button
+              ><button id="download-logs" class="button secondary">
+                Download CSV
+              </button>
+            </div>
+          </div>
+          <section class="panel">
+            <ol id="event-log" class="activity-list">
+              <li class="empty-activity">
+                Activity appears as this dashboard receives events.
+              </li>
+            </ol>
+          </section>
+        </section>
+        <section data-view="reports" class="view" hidden>
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">OBSERVE. RECORD. UNDERSTAND.</p>
+              <h1>Your greenhouse<br /><em>over time.</em></h1>
+              <p class="lede">
+                A printable record built from actual research observations.
+              </p>
+            </div>
+          </div>
+          <section class="panel report-page">
+            <div class="report-cover">
+              <svg><use href="/assets/field/icons.svg#reports" /></svg>
+              <p>AVATAR / FIELD NOTES</p>
+              <h2>The first<br />12 hours.</h2>
+              <span>GREENHOUSE RESEARCH RECORD</span>
+            </div>
+            <div class="report-copy">
+              <span class="small-badge" id="report-state"
+                >Waiting for setup</span
+              >
+              <h2>Evidence, in one place.</h2>
+              <p id="report-status">
+                Finish greenhouse setup to start your research record.
+              </p>
+              <dl>
+                <div>
+                  <dt>Includes</dt>
+                  <dd>Climate, soil readings and recorded protection events</dd>
+                </div>
+                <div>
+                  <dt>Source</dt>
+                  <dd>Private ThingSpeak history</dd>
+                </div>
+                <div>
+                  <dt>Measurement limits</dt>
+                  <dd>Uncalibrated readings stay clearly labelled</dd>
+                </div>
+              </dl>
+              <button id="open-report" class="button" disabled>
+                Open printable report <span>↗</span></button
+              ><button class="text-link" data-go="setup">
+                Review greenhouse setup
+              </button>
+            </div>
+          </section>
+        </section>
+        <footer>
+          <span>Project AVATAR</span
+          ><span>Greenhouse farming research prototype · Group A27H</span
+          ><span id="footer-source">Waiting for device</span>
+        </footer>
+      </main>
+    </div>
+    <div id="toast" role="status" aria-live="polite"></div>
     <script type="module" src="/app.js"></script>
   </body>
 </html>

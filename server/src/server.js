@@ -1,11 +1,24 @@
 import { createServer } from "node:http";
-import { appendFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import {
+  appendFile,
+  mkdir,
+  readFile,
+  rename,
+  writeFile,
+} from "node:fs/promises";
 import { extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PrivyClient } from "@privy-io/node";
 import { WebSocket, WebSocketServer } from "ws";
 import { createThingSpeakBridge } from "./thingspeak.js";
-import { buildFarmReport, reportEligibility, REPORT_WAIT_MS } from "./report.js";
+import { localDashboardState } from "./dashboard-state.js";
+import { farmDeviceId } from "./farm-device.js";
+import { isOperator, parseOperatorIds } from "./operator-access.js";
+import {
+  buildFarmReport,
+  reportEligibility,
+  REPORT_WAIT_MS,
+} from "./report.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const publicDirectory = join(root, "public");
@@ -17,13 +30,26 @@ const latestFile = join(dataDirectory, "latest.json");
 const farmFile = join(dataDirectory, "farm.json");
 
 const port = Number(process.env.PORT || 8787);
-const deviceToken =
+const configuredDeviceToken =
   process.env.PROJECT_AVATAR_DEVICE_TOKEN ||
   process.env.NIGHT_GARDEN_DEVICE_TOKEN ||
-  "project-avatar-local-development-token";
+  "";
+const production = process.env.NODE_ENV === "production";
+const operatorIds = parseOperatorIds(process.env.PROJECT_AVATAR_OPERATOR_USER_IDS);
+if (production && configuredDeviceToken.length < 32) {
+  throw new Error("Production requires a device token of at least 32 characters.");
+}
+const deviceToken =
+  configuredDeviceToken || "project-avatar-local-development-token";
 const privyAppId = process.env.PRIVY_APP_ID || "";
 const privyAppSecret = process.env.PRIVY_APP_SECRET || "";
 const authEnabled = Boolean(privyAppId && privyAppSecret);
+if (production && !authEnabled) {
+  throw new Error("Production requires Privy authentication credentials.");
+}
+if (production && operatorIds.size === 0) {
+  throw new Error("Production requires at least one approved operator user ID.");
+}
 const privy = authEnabled
   ? new PrivyClient({ appId: privyAppId, appSecret: privyAppSecret })
   : null;
@@ -108,8 +134,13 @@ async function getAuthenticatedUser(request) {
   }
 }
 
-async function requireUser(request, response) {
+async function getOperator(request) {
   const user = await getAuthenticatedUser(request);
+  return isOperator(user, operatorIds, production) ? user : null;
+}
+
+async function requireUser(request, response) {
+  const user = await getOperator(request);
   if (!user) {
     json(response, 401, { error: "Sign in is required" });
     return null;
@@ -129,7 +160,10 @@ function publish(event, payload) {
 }
 
 function hasRecentDeviceReport() {
-  return Boolean(state.latest) && Date.now() - Date.parse(state.latest.receivedAt) <= 150_000;
+  return (
+    Boolean(state.latest) &&
+    Date.now() - Date.parse(state.latest.receivedAt) <= 150_000
+  );
 }
 
 function normalizeTelemetry(payload) {
@@ -161,19 +195,27 @@ async function recordTelemetry(payload) {
     await persistTelemetry(telemetry);
   }
   publish("telemetry", telemetry);
-  const alert = telemetry.readings?.fireDetected === true
-    ? "FIRE_DETECTED"
-    : telemetry.outputs?.fireLockout === true
-      ? "FIRE_RESPONSE_FAULT"
-      : telemetry.outputs?.waterFault === true ||
-          telemetry.outputs?.irrigationLockout === true
-        ? "IRRIGATION_FAULT"
-        : null;
+  const alert =
+    telemetry.readings?.fireDetected === true
+      ? "FIRE_DETECTED"
+      : telemetry.outputs?.fireLockout === true
+        ? "FIRE_RESPONSE_FAULT"
+        : telemetry.outputs?.waterFault === true ||
+            telemetry.outputs?.irrigationLockout === true
+          ? "IRRIGATION_FAULT"
+          : null;
   const signature = alert ? `${telemetry.deviceId}:${alert}` : null;
   if (signature && signature !== state.lastAlertSignature)
-    publish("alert", { deviceId: telemetry.deviceId, alert, at: telemetry.receivedAt });
+    publish("alert", {
+      deviceId: telemetry.deviceId,
+      alert,
+      at: telemetry.receivedAt,
+    });
   if (!signature && state.lastAlertSignature)
-    publish("alert-clear", { deviceId: telemetry.deviceId, at: telemetry.receivedAt });
+    publish("alert-clear", {
+      deviceId: telemetry.deviceId,
+      at: telemetry.receivedAt,
+    });
   state.lastAlertSignature = signature;
   // Demonstration readings must never be stored as real field history.
   if (telemetry.mode === "hardware") thingSpeak.enqueue(telemetry);
@@ -211,18 +253,31 @@ function nextDeviceCommand(request, response, url) {
   let command = queue.shift();
   state.commands.set(deviceId, queue);
 
-  if (!command && state.farm?.deviceId === deviceId && !state.farm.deviceSyncedAt) {
-    const inFlight = [...state.inFlightCommands.values()].find((item) =>
-      item.action === "SET_PROFILE" && item.profileRevision === state.farm.revision);
+  if (
+    !command &&
+    state.farm?.deviceId === deviceId &&
+    !state.farm.deviceSyncedAt
+  ) {
+    const inFlight = [...state.inFlightCommands.values()].find(
+      (item) =>
+        item.action === "SET_PROFILE" &&
+        item.profileRevision === state.farm.revision,
+    );
     if (inFlight && Date.now() - Date.parse(inFlight.createdAt) > 30_000)
       state.inFlightCommands.delete(inFlight.commandId);
     if (!inFlight || Date.now() - Date.parse(inFlight.createdAt) > 30_000)
       command = {
-        commandId: crypto.randomUUID(), deviceId, action: "SET_PROFILE",
+        commandId: crypto.randomUUID(),
+        deviceId,
+        action: "SET_PROFILE",
         profileRevision: state.farm.revision,
-        profile: { name: state.farm.name, farmerName: state.farm.farmerName,
-          crop: state.farm.crop, setupAt: state.farm.setupAt,
-          revision: state.farm.revision },
+        profile: {
+          name: state.farm.name,
+          farmerName: state.farm.farmerName,
+          crop: state.farm.crop,
+          setupAt: state.farm.setupAt,
+          revision: state.farm.revision,
+        },
         createdAt: new Date().toISOString(),
       };
   }
@@ -245,7 +300,9 @@ async function acknowledgeDeviceCommand(request, response) {
     const payload = await readJsonBody(request);
     const command = state.inFlightCommands.get(payload.commandId);
     if (!command || command.deviceId !== payload.deviceId) {
-      return json(response, 404, { error: "Command was not awaiting acknowledgement" });
+      return json(response, 404, {
+        error: "Command was not awaiting acknowledgement",
+      });
     }
 
     const acknowledgement = {
@@ -254,12 +311,16 @@ async function acknowledgeDeviceCommand(request, response) {
       acknowledgedAt: new Date().toISOString(),
     };
     state.inFlightCommands.delete(command.commandId);
-    if (command.action === "SET_PROFILE" && acknowledgement.applied &&
-        state.farm?.revision === command.profileRevision) {
+    if (
+      command.action === "SET_PROFILE" &&
+      acknowledgement.applied &&
+      state.farm?.revision === command.profileRevision
+    ) {
       const confirmedFarm = {
         ...state.farm,
         deviceSyncedAt: acknowledgement.acknowledgedAt,
-        commissionedAt: state.farm.commissionedAt || acknowledgement.acknowledgedAt,
+        commissionedAt:
+          state.farm.commissionedAt || acknowledgement.acknowledgedAt,
       };
       await persistFarm(confirmedFarm);
       state.farm = confirmedFarm;
@@ -316,7 +377,9 @@ function authConfig(response) {
 
 async function establishUserSession(request, response) {
   if (!authEnabled) {
-    return json(response, 409, { error: "Privy authentication is not configured" });
+    return json(response, 409, {
+      error: "Privy authentication is not configured",
+    });
   }
 
   const authorization = request.headers.authorization || "";
@@ -325,7 +388,12 @@ async function establishUserSession(request, response) {
     : "";
 
   try {
-    await privy.utils().auth().verifyAuthToken(token);
+    const user = await privy.utils().auth().verifyAuthToken(token);
+    if (!isOperator(user, operatorIds, production)) {
+      return json(response, 403, {
+        error: `This account is not approved to operate Project AVATAR. Privy user ID: ${user.userId}`,
+      });
+    }
     const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
     response.writeHead(204, {
       "Set-Cookie": `project-avatar-session=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=3600${secure}`,
@@ -372,11 +440,11 @@ async function serveStatic(response, pathname) {
       ? "/index.html"
       : pathname === "/auth/"
         ? "/auth/index.html"
-      : pathname === "/slide/"
+        : pathname === "/slide/"
           ? "/slide/index.html"
-        : pathname === "/report/"
-          ? "/report/index.html"
-        : pathname;
+          : pathname === "/report/"
+            ? "/report/index.html"
+            : pathname;
   const safePath = normalize(requested).replace(/^(\.\.[/\\])+/, "");
   const filePath = join(publicDirectory, safePath);
 
@@ -387,7 +455,8 @@ async function serveStatic(response, pathname) {
   try {
     const content = await readFile(filePath);
     response.writeHead(200, {
-      "Content-Type": mimeTypes[extname(filePath)] || "application/octet-stream",
+      "Content-Type":
+        mimeTypes[extname(filePath)] || "application/octet-stream",
     });
     response.end(content);
   } catch {
@@ -415,7 +484,11 @@ function farmName(value, label, required = true) {
   if (value == null && !required) return "";
   if (typeof value !== "string") throw new Error(`${label} must be text`);
   const trimmed = value.trim();
-  if ((required && trimmed.length < 2) || trimmed.length > 80 || /[\x00-\x1f\x7f]/.test(trimmed))
+  if (
+    (required && trimmed.length < 2) ||
+    trimmed.length > 80 ||
+    /[\x00-\x1f\x7f]/.test(trimmed)
+  )
     throw new Error(`${label} must be 2–80 readable characters`);
   return trimmed;
 }
@@ -424,15 +497,25 @@ async function saveFarm(payload) {
   const name = farmName(payload.name, "Farm name");
   const farmerName = farmName(payload.farmerName, "Farmer name");
   const crop = farmName(payload.crop, "Crop", false);
-  const unchanged = Boolean(state.farm?.revision) && state.farm?.name === name &&
-    state.farm?.farmerName === farmerName && state.farm?.crop === crop;
+  const deviceId = farmDeviceId(payload.deviceId, state.latest, state.farm);
+  const unchanged =
+    state.farm?.deviceId === deviceId &&
+    Boolean(state.farm?.revision) &&
+    state.farm?.name === name &&
+    state.farm?.farmerName === farmerName &&
+    state.farm?.crop === crop;
   const farm = {
-    name, farmerName, crop,
+    name,
+    farmerName,
+    crop,
     setupAt: state.farm?.setupAt || new Date().toISOString(),
-    deviceId: state.farm?.deviceId || "project-avatar-001",
+    deviceId,
     revision: unchanged ? state.farm.revision : crypto.randomUUID(),
     deviceSyncedAt: unchanged ? state.farm.deviceSyncedAt || null : null,
-    commissionedAt: state.farm?.commissionedAt || null,
+    commissionedAt:
+      state.farm?.deviceId === deviceId
+        ? state.farm?.commissionedAt || null
+        : null,
   };
   await persistFarm(farm);
   state.farm = farm;
@@ -446,7 +529,9 @@ async function saveFarm(payload) {
 async function persistFarm(farm) {
   await mkdir(dataDirectory, { recursive: true });
   const temporaryFile = `${farmFile}.${process.pid}.tmp`;
-  await writeFile(temporaryFile, JSON.stringify(farm, null, 2), { mode: 0o600 });
+  await writeFile(temporaryFile, JSON.stringify(farm, null, 2), {
+    mode: 0o600,
+  });
   await rename(temporaryFile, farmFile);
 }
 
@@ -465,6 +550,9 @@ const server = createServer(async (request, response) => {
       status: "ok",
       latestTelemetryAt: state.latest?.receivedAt || null,
       deviceReportedRecently: hasRecentDeviceReport(),
+      deviceStreamConnected: [...state.deviceSockets.values()].some(
+        (socket) => socket.readyState === WebSocket.OPEN,
+      ),
       thingSpeakConfigured: thingSpeak.configured,
       thingSpeakUploadPending: thingSpeak.pending,
     });
@@ -484,21 +572,33 @@ const server = createServer(async (request, response) => {
 
   if (request.method === "GET" && url.pathname === "/api/state") {
     if (!(await requireUser(request, response))) return;
+    const local = localDashboardState(state.latest, state.history, {
+      configured: thingSpeak.configured,
+      pending: thingSpeak.pending,
+    });
+    if (local) return json(response, 200, local);
     if (thingSpeak.configured) {
       try {
         const cloudLatest = await thingSpeak.readLatest(state.latest);
         return json(response, 200, {
           latest: cloudLatest,
           source: "thingspeak",
+          history: state.history,
+          cloudConfigured: true,
           cloudAvailable: true,
           pendingUpload: thingSpeak.pending,
           deviceReportedRecently: hasRecentDeviceReport(),
         });
       } catch (error) {
-        return json(response, 503, {
-          error: "ThingSpeak is unavailable; cloud readings cannot be verified.",
-          source: "thingspeak",
+        return json(response, 200, {
+          latest: state.latest,
+          history: state.history,
+          source: "local",
+          cloudConfigured: true,
           cloudAvailable: false,
+          cloudError:
+            "Cloud history is unavailable. Local observations are retained.",
+          pendingUpload: thingSpeak.pending,
           deviceReportedRecently: hasRecentDeviceReport(),
         });
       }
@@ -515,7 +615,10 @@ const server = createServer(async (request, response) => {
   if (url.pathname === "/api/farm") {
     if (!(await requireUser(request, response))) return;
     if (request.method === "GET")
-      return json(response, 200, { farm: state.farm, report: reportEligibility(state.farm) });
+      return json(response, 200, {
+        farm: state.farm,
+        report: reportEligibility(state.farm),
+      });
     if (request.method === "POST") {
       try {
         const farm = await saveFarm(await readJsonBody(request));
@@ -528,19 +631,35 @@ const server = createServer(async (request, response) => {
 
   if (request.method === "GET" && url.pathname === "/api/report") {
     if (!(await requireUser(request, response))) return;
-    if (!state.farm) return json(response, 409, { error: "Set up your farm first." });
+    if (!state.farm)
+      return json(response, 409, { error: "Set up your farm first." });
     const eligibility = reportEligibility(state.farm);
     if (!eligibility.eligible)
-      return json(response, 425, { error: "Report available 12 hours after farm setup.", ...eligibility });
+      return json(response, 425, {
+        error: "Report available 12 hours after farm setup.",
+        ...eligibility,
+      });
     if (!thingSpeak.configured)
-      return json(response, 503, { error: "Private ThingSpeak history is not configured." });
+      return json(response, 503, {
+        error: "Private ThingSpeak history is not configured.",
+      });
     try {
       const to = Date.now();
-      const { soil, environment } = await thingSpeak.readRange(to - REPORT_WAIT_MS, to);
-      return json(response, 200, buildFarmReport(state.farm, soil, environment, to));
+      const { soil, environment } = await thingSpeak.readRange(
+        to - REPORT_WAIT_MS,
+        to,
+      );
+      return json(
+        response,
+        200,
+        buildFarmReport(state.farm, soil, environment, to),
+      );
     } catch (error) {
       console.warn("[REPORT] History unavailable:", error.message);
-      return json(response, 503, { error: "Recorded history is unavailable. Try again when ThingSpeak is reachable." });
+      return json(response, 503, {
+        error:
+          "Recorded history is unavailable. Try again when ThingSpeak is reachable.",
+      });
     }
   }
 
@@ -587,7 +706,11 @@ const server = createServer(async (request, response) => {
     return response.end();
   }
 
-  if (authEnabled && url.pathname === "/" && !(await getAuthenticatedUser(request))) {
+  if (
+    authEnabled &&
+    url.pathname === "/" &&
+    !(await getOperator(request))
+  ) {
     response.writeHead(302, { Location: "/auth/" });
     return response.end();
   }
@@ -601,7 +724,10 @@ const dashboardSocketServer = new WebSocketServer({ noServer: true });
 deviceSocketServer.on("connection", (socket) => {
   let deviceId = null;
   socket.on("error", (error) => {
-    console.warn("[WS] Device socket closed with protocol error:", error.message);
+    console.warn(
+      "[WS] Device socket closed with protocol error:",
+      error.message,
+    );
   });
   socket.on("message", async (raw) => {
     try {
@@ -610,20 +736,29 @@ deviceSocketServer.on("connection", (socket) => {
       const telemetry = await recordTelemetry(message.payload);
       deviceId = telemetry.deviceId;
       state.deviceSockets.set(deviceId, socket);
-      socket.send(JSON.stringify({ type: "telemetry-accepted", receivedAt: telemetry.receivedAt }));
+      socket.send(
+        JSON.stringify({
+          type: "telemetry-accepted",
+          receivedAt: telemetry.receivedAt,
+        }),
+      );
     } catch (error) {
       socket.send(JSON.stringify({ type: "error", error: error.message }));
     }
   });
   socket.on("close", () => {
-    if (deviceId && state.deviceSockets.get(deviceId) === socket) state.deviceSockets.delete(deviceId);
+    if (deviceId && state.deviceSockets.get(deviceId) === socket)
+      state.deviceSockets.delete(deviceId);
   });
 });
 
 dashboardSocketServer.on("connection", (socket) => {
   state.dashboardSockets.add(socket);
   socket.on("error", (error) => {
-    console.warn("[WS] Dashboard socket closed with protocol error:", error.message);
+    console.warn(
+      "[WS] Dashboard socket closed with protocol error:",
+      error.message,
+    );
   });
   socket.on("close", () => state.dashboardSockets.delete(socket));
 });
@@ -632,15 +767,25 @@ server.on("upgrade", async (request, socket, head) => {
   const url = new URL(request.url, `http://${request.headers.host}`);
   if (url.pathname === "/ws/device") {
     if (!isDeviceAuthorized(request)) return socket.destroy();
-    return deviceSocketServer.handleUpgrade(request, socket, head, (webSocket) => {
-      deviceSocketServer.emit("connection", webSocket, request);
-    });
+    return deviceSocketServer.handleUpgrade(
+      request,
+      socket,
+      head,
+      (webSocket) => {
+        deviceSocketServer.emit("connection", webSocket, request);
+      },
+    );
   }
   if (url.pathname === "/ws/dashboard") {
-    if (!(await getAuthenticatedUser(request))) return socket.destroy();
-    return dashboardSocketServer.handleUpgrade(request, socket, head, (webSocket) => {
-      dashboardSocketServer.emit("connection", webSocket, request);
-    });
+    if (!(await getOperator(request))) return socket.destroy();
+    return dashboardSocketServer.handleUpgrade(
+      request,
+      socket,
+      head,
+      (webSocket) => {
+        dashboardSocketServer.emit("connection", webSocket, request);
+      },
+    );
   }
   socket.destroy();
 });

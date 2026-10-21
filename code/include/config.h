@@ -7,11 +7,11 @@
 // possible without changing the control flow.
 constexpr unsigned long SERIAL_BAUD = 115200;
 
-// The integrated target defaults to safe output-off until its own pin mapping
-// and power rail are commissioned. The separate bench sketch is unchanged.
+// Physical bench wiring and external supplies confirmed by the operator.
+// Local bounded control remains independent of the network task.
 constexpr bool SIMULATION_MODE = false;
-constexpr bool ENABLE_PUMP_OUTPUTS = false;
-constexpr bool ENABLE_SERVO_OUTPUT = false;
+constexpr bool ENABLE_PUMP_OUTPUTS = true;
+constexpr bool ENABLE_SERVO_OUTPUT = true;
 constexpr bool ENABLE_FIRE_SENSOR_INPUT = true;
 constexpr bool ENABLE_SOIL_MOISTURE_INPUT = true;
 constexpr bool ENABLE_MQ6_INPUT = true; // Both AO and DO must be divided to <=3.3 V.

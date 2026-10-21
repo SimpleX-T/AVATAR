@@ -209,6 +209,18 @@ bool begin()
         savedSsid = wifi["ssid"].as<String>();
         savedPassword = wifi["password"].as<String>();
     }
+#if defined(AVATAR_USE_PRECONFIGURED_WIFI) && AVATAR_USE_PRECONFIGURED_WIFI
+    // Deadline/demo fallback: the ignored build configuration overrides NVS.
+    // Keep Preferences open for farm-profile persistence, without starting AP.
+    savedSsid = WIFI_SSID;
+    savedPassword = WIFI_PASSWORD;
+    if (savedSsid.isEmpty() || savedSsid == "YOUR_WIFI_NAME")
+    {
+        Serial.println("[SETUP] Direct Wi-Fi enabled, but network name is not configured.");
+        return false;
+    }
+    Serial.println("[SETUP] Direct Wi-Fi configured; joining automatically without the setup portal.");
+#endif
     initialized = true;
     if (savedSsid.isEmpty()) startPortal();
     return true;

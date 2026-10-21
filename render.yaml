@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: project-avatar-greenhouse
+    runtime: node
+    region: frankfurt
+    plan: 0.5c-512mb
+    rootDir: server
+    buildCommand: npm ci --include=dev && npm --prefix client ci --include=dev && npm run build:auth
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    disk:
+      name: avatar-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 24.21.0
+      - key: PROJECT_AVATAR_DATA_DIR
+        value: /var/data
+      - key: PROJECT_AVATAR_DEVICE_TOKEN
+        sync: false
+      - key: PRIVY_APP_ID
+        sync: false
+      - key: PRIVY_APP_SECRET
+        sync: false
+      - key: PROJECT_AVATAR_OPERATOR_USER_IDS
+        sync: false
+      - key: THINGSPEAK_SOIL_CHANNEL_ID
+        sync: false
+      - key: THINGSPEAK_SOIL_WRITE_KEY
+        sync: false
+      - key: THINGSPEAK_SOIL_READ_KEY
+        sync: false
+      - key: THINGSPEAK_ENV_CHANNEL_ID
+        sync: false
+      - key: THINGSPEAK_ENV_WRITE_KEY
+        sync: false
+      - key: THINGSPEAK_ENV_READ_KEY
+        sync: false
