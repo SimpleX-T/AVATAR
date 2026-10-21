@@ -21,10 +21,12 @@ router port forwarding is required. The dashboard is served at
 1. In Render, create a Blueprint from `simplex-t/avatar` using `render.yaml`.
    The persistent web-service plan and disk incur charges. Set the required
    secret environment values in Render; never commit or paste them into chat.
-   `PROJECT_AVATAR_DEVICE_TOKEN` must match `DEVICE_TOKEN` in the ESP32's
-   ignored `code/include/secrets.h`. The existing local `server/.env` stores
-   that same value as `NIGHT_GARDEN_DEVICE_TOKEN`; copy its value into Render's
-   `PROJECT_AVATAR_DEVICE_TOKEN` field without posting it anywhere.
+   `PROJECT_AVATAR_DEVICE_TOKEN` must be a strong random secret and later match
+   `DEVICE_TOKEN` in the ESP32's ignored `code/include/secrets.h`. The old
+   local `NIGHT_GARDEN_DEVICE_TOKEN` is a bench placeholder and must not be
+   used publicly. The new value is staged privately in the ignored
+   `server/.env.render` file; copy only its value into Render without posting
+   it anywhere. The ESP32 will be flashed with that same value at cutover.
    Set `PRIVY_APP_ID`, `PRIVY_APP_SECRET`,
    and `PROJECT_AVATAR_OPERATOR_USER_IDS` (comma-separated Privy user IDs).
    If the first operator ID is unknown, set this field temporarily to

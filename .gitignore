@@ -7,6 +7,7 @@ code/include/server_ca.h
 code/diagnostics/avatar_bench_test/wifi_secrets.h
 server/data/
 server/.env
+server/.env.render
 server/node_modules
 server/client/node_modules
 
