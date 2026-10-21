@@ -1,83 +1,31 @@
-# Project AVATAR Design System
+# AVATAR field console
 
-<!-- impeccable:design-schema 1 -->
+Mode: Operate. A working greenhouse, interpreted clearly. Replace the previous
+poster aesthetic with a quiet instrument panel: warm daylight surfaces, deep
+forest navigation, precise tabular readings, generous white space, and one
+crafted isometric greenhouse schematic.
 
-## Visual World
+## Visual system
 
-Project AVATAR is a farmer-facing field tool for an off-grid agriculture
-prototype. The interface should feel practical, calm, and legible in daylight
-on a phone, not like an examiner-only presentation. Keep the existing strong
-printed-control-sheet character, but use decoration only when it helps someone
-read farm conditions or operate the system.
+- Canvas #f4f5f0; surface #ffffff; ink #20352c; muted #627169.
+- Forest #203e32; active accent #d4e8b4; caution #986317; danger #a73532.
+- Typography: system sans for controls/body; Georgia for the main page title.
+- One-pixel separators; 14px panel radii; no hard offset shadows or character art.
+- Sidebar anchors the desktop; mobile uses a compact, horizontal navigation.
+- Readings remain the focal point. No healthy crop claims from uncalibrated data.
 
-## Surface Strategy
+## Behaviour
 
-Mode: Operate.
+Overview → check device → name greenhouse → verify device save → monitor.
+Setup is resumable from the server profile; draft fields persist locally.
+Activation requires fresh physical telemetry and a matching on-chip profile ack.
+Local data, cloud status, physical outputs and command acknowledgement are distinct.
+The illustration represents the system layout, never a measured 3D twin. Its
+selected subsystem and active pumps follow telemetry; no simulated water flow.
+Charts contain actual recorded observations only. Missing values remain missing.
 
-The reading order is:
+## Accessibility and motion
 
-1. Is the farm unit working, and when did it last report?
-2. Are the displayed readings current and understandable?
-3. What is happening at the farm and at each sensor location?
-4. Is an automatic action active, and why?
-5. What can the farmer safely do next?
-
-## Color Roles
-
-- `paper`: warm off-white `#f4f0e6`
-- `ink`: near-black `#11110f`
-- `signal`: acid green `#b9f34a`
-- `attention`: warm yellow `#ffd84d`
-- `info`: clear blue `#7db7ff`
-- `danger`: tomato red `#ff6b57`
-- `muted-ink`: `#4e4d47`
-
-Color appears as large functional fields, not scattered decoration. Status is
-always written in text and never communicated by color alone.
-
-## Typography
-
-- Use highly legible type with familiar letterforms; avoid dense technical
-  monospace as the primary reading face.
-- Keep labels and instructions short, concrete, and easy to translate.
-- Readings use tabular numerals.
-- Body text is never below 16px; labels are never below 13px.
-
-## Composition
-
-- Strong 3px black borders.
-- Square or lightly rounded corners only where the reference language needs
-  them.
-- Offset shadows use hard ink-like displacement.
-- The first view foregrounds farm status, data freshness, and active actions.
-- Every measurement includes a human-readable name and unit; show sensor
-  location where known.
-- Use status words as well as color, with distinct states for offline, stale,
-  missing, simulated, and current readings.
-- Controls use familiar labels, clear consequences, and confirmation for
-  consequential actions; do not expose raw device commands as farmer controls.
-
-## Motion
-
-Motion is secondary to timely, stable readings. Use brief feedback to show a
-new reading or a completed action; do not imply that animated data is live when
-the device is offline or stale. Respect reduced-motion settings and do not make
-motion the only way to communicate a state.
-
-## Responsive Rules
-
-- Desktop: farm status, key measurements, sensor locations, and action history
-  are easy to scan together.
-- Tablet: preserve readable measurement groups and reachable controls.
-- Mobile: prioritize current status and next action; no essential reading or
-  alert is hidden in a wide table or decorative canvas.
-- Touch targets remain at least 44px.
-- Controls work with keyboard access.
-
-## Accessibility
-
-- Contrast meets WCAG AA.
-- Keyboard focus is a 3px black outline with yellow offset.
-- Status has text, icon, and color.
-- Charts and maps include accessible text equivalents and explicit units.
-- Reduced-motion mode removes looping animation.
+44px targets, clear labels, visible focus, status text plus colour, keyboard
+navigation, reduced motion, and a 360px layout without horizontal scrolling.
+Transitions communicate navigation or new evidence; nothing runs an idle loop.

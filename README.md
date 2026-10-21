@@ -18,14 +18,14 @@ Modbus manual; its settings and enabled measurements still need verification
 against this exact unit. Child sensor nodes and their LoRa/Wi-Fi links are
 future expansion; sensors are wired to the head-node in this prototype.
 
-**Implemented now:** modular ESP32 firmware with the calibrated capacitive sensor,
+**Implemented now:** modular ESP32 firmware with a capacitive soil sensor,
 DHT11, divided MQ-6 inputs, read-only RS-485 soil registers, independent
-bounded fire/water responses, and two disabled-by-default L298N pump outputs;
+bounded fire/water responses, and L298N pump outputs enabled in the current bench build;
 a Node.js telemetry server and a browser dashboard; and optional server-side
 private ThingSpeak publishing/reading, with two private research channels
-configured locally; protected first-boot Wi-Fi setup, NVS-stored credentials
-and farm profile, and a 12-hour printable research report. Provisioning
-compiles but awaits physical commissioning. **Planned, not yet integrated:** durable
+configured locally; preconfigured Wi-Fi in the current bench build, an on-chip
+farm profile, and a 12-hour printable research report. The original phone
+provisioning portal still needs debugging. **Planned, not yet integrated:** durable
 offline buffering,
 QR-based claiming, remote child nodes, and physical pump
 commissioning. See [the confirmed prototype architecture](docs/confirmed-system-architecture.md),
@@ -33,6 +33,8 @@ commissioning. See [the confirmed prototype architecture](docs/confirmed-system-
 For cloud setup, use [the ThingSpeak guide](docs/thingspeak-setup.md).
 The [greenhouse setup and report guide](docs/greenhouse-onboarding-and-report.md)
 separates compiled features from the hardware commissioning still required.
+For the hosted dashboard and ESP32 cutover, follow
+[the Render deployment guide](docs/render-deployment.md).
 
 ## Run the current software prototype
 
@@ -50,9 +52,9 @@ separates compiled features from the hardware commissioning still required.
    cp include/secrets.example.h include/secrets.h
    ```
 
-3. Set the computer LAN URL and device token in `secrets.h`. Home Wi-Fi is
-   entered through the protected ESP32 setup page after flashing, not stored
-   in this source file.
+3. Set the computer LAN URL and device token in the ignored `secrets.h`.
+   For this bench build, set `AVATAR_USE_PRECONFIGURED_WIFI` to `1` and supply
+   the home 2.4 GHz Wi-Fi name and password there. Keep the file out of Git.
 
 4. Upload and monitor:
 
@@ -61,14 +63,16 @@ separates compiled features from the hardware commissioning still required.
    pio device monitor
    ```
 
-5. On first boot, read the generated setup Wi-Fi name and password at 115200
-   baud; label the unit, then visit `http://192.168.4.1` from a phone on that
-   Wi-Fi. After connecting the ESP32 to the home network, open
-   `http://localhost:8787` on the server computer to name the greenhouse.
+5. With the Node server running, power the ESP32. On that same computer, open
+   `http://localhost:8787/` to see the dashboard. The ESP32 reconnects to
+   Wi-Fi automatically and sends observations to the computer. The ESP32's
+   own IP is not the dashboard address. Another device on the LAN would use
+   the computer's IP on port `8787`, but Privy sign-in there currently needs
+   HTTPS.
 
 Without Privy credentials, the server stays in local demonstration mode. This
-is still a developer workflow. The farm profile and Wi-Fi provisioning are
-implemented but not yet commissioned on physical hardware. QR claiming and
+is still a developer workflow. The farm profile has been acknowledged by the
+physical ESP32; sensor health and pump delivery need separate checks. QR claiming and
 device-to-account ownership are not implemented.
 
 ## Enable operator sign-in with Privy
@@ -102,36 +106,37 @@ server-only and must never be committed. Browser users receive an HTTP-only,
 same-site session after the server verifies their Privy access token. The ESP32
 continues to authenticate separately with its device token.
 
-The current firmware settings are in `code/include/config.h`. Sensor inputs
-are enabled in the integrated target; pump/servo outputs remain disabled there
-until that target is commissioned. A successful build does not establish hardware
-readiness. MQ-6 AO/DO and MAX485 RO must have their 5 V outputs divided or level
-shifted before the ESP32.
+The current firmware settings are in `code/include/config.h`. Sensor inputs and
+pump/servo outputs are enabled in the assembled bench target after the operator
+confirmed the wiring. A successful build does not establish physical delivery
+or sensor calibration. MQ-6 AO/DO and MAX485 RO must have their 5 V outputs
+divided or level shifted before the ESP32.
 
 ```cpp
 constexpr bool SIMULATION_MODE = false;
-constexpr bool ENABLE_PUMP_OUTPUTS = false;
-constexpr bool ENABLE_SERVO_OUTPUT = false;
+constexpr bool ENABLE_PUMP_OUTPUTS = true;
+constexpr bool ENABLE_SERVO_OUTPUT = true;
 constexpr bool ENABLE_FIRE_SENSOR_INPUT = true;
 constexpr bool ENABLE_SOIL_MOISTURE_INPUT = true;
 ```
 
-The pump and servo flags are separate. Set each to `true` only after its
-electrical and mechanical commissioning steps pass.
+The pump and servo flags are separate; keep their physical safety bounds and
+verify actual output before relying on them.
 
 ## Current prototype status
 
 - The firmware targets an ESP32 DevKit. Its telemetry uses one fire sensor,
   one capacitive soil sensor, DHT11, MQ-6 and raw pH/EC/N/P/K registers.
-- Firmware telemetry goes to the Node server over the current LAN HTTP/WebSocket
-  path. When configured, the server writes two private ThingSpeak channels and
+- The currently flashed firmware sends telemetry to the Node server over the
+  LAN HTTP/WebSocket path. The source can also use verified HTTPS/WSS for a
+  hosted server, but that build has not yet been flashed. When configured, the server writes two private ThingSpeak channels and
   the dashboard reads their recorded feeds through a protected server route.
 - The local telemetry interval is 60 seconds. Networking runs in a separate
   ESP32 task, so a slow HTTP request does not pause the faster local fire and
   pump control loop.
-- The pin map in `code/include/pins.h` follows the proven bench inputs. The
-  integrated target has not yet been flashed and re-tested on the assembled
-  board. L298N ENA/ENB stay jumpered on this particular build; GPIO18/23 are
+- The pin map in `code/include/pins.h` follows the bench inputs. The
+  current LAN target was flashed and its server connection observed; physical
+  water delivery remains unverified. L298N ENA/ENB stay jumpered on this particular build; GPIO18/23 are
   not used for the pump driver.
 
 ## Current firmware organization
@@ -241,3 +246,39 @@ and a field-grade offline queue are not present yet. Before public deployment,
 add HTTPS, durable storage, rate limits,
 unique revocable device credentials, audit logging, ownership checks, and a
 documented recovery process. Do not forward port `8787` from a router.
+
+## Direct Wi-Fi fallback
+
+For deadline demonstrations, bypass phone provisioning by setting
+`AVATAR_USE_PRECONFIGURED_WIFI` to `1` in the ignored `code/include/secrets.h`.
+Set `WIFI_SSID` and `WIFI_PASSWORD` in that same file, using
+`code/include/secrets.example.h` as the reference. Upload the firmware; it joins
+that network automatically at boot without opening the setup access point.
+Existing on-chip Wi-Fi settings are retained. Set the flag back to `0` and
+upload again to restore the phone provisioning flow.
+
+This fallback does not resolve the outstanding phone provisioning timeout.
+Wi-Fi connection and delivery to the dashboard server require separate checks.
+
+## Standalone field test (21 October 2026)
+
+The integrated ESP32 build now uses the operator-confirmed bench wiring with
+pump and servo outputs enabled. Automatic Wi-Fi uses the ignored local
+`secrets.h` fallback. Fire and irrigation retain bounded bursts, sensor checks,
+independent recovery, and fire priority. Physical performance must still be
+observed on the assembled system; a firmware build is not a pump-delivery test.
+
+Local control runs on the ESP32 without this computer. The browser dashboard,
+authentication, research reports, and current ThingSpeak publishing bridge
+still run on the Node.js server. Keep that server on for browser/cloud access.
+The ESP32 reconnects when Wi-Fi or the server returns.
+
+The field console separates fresh device reports, valid sensor observations,
+command acknowledgements, and cloud upload state. Setup follows the actual
+reporting device ID, then waits for the ESP32 to acknowledge the matching
+profile. A connected device with invalid sensors is not displayed as a healthy
+commissioned farm.
+
+Run `npm --prefix server run build:figure` to regenerate the Anatomy greenhouse
+schematic, `npm --prefix server run build:auth` for the sign-in page, and
+`npm --prefix server test` for model and isolated setup-flow tests.

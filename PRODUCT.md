@@ -46,8 +46,9 @@ silently disable safe local behavior.
 - Current hardware connects sensors to one 38-pin ESP32 head-node by wire.
 - Future child nodes may communicate with the head-node over LoRa or Wi-Fi.
 - The ESP32 currently sends its legacy telemetry to a local Node.js server.
-- ThingSpeak publishing, durable offline buffering, QR claiming, and farmer
-  device provisioning are planned, not implemented.
+- ThingSpeak publishing and acknowledged greenhouse-profile setup are implemented.
+  QR claiming and durable offline upload buffering remain planned. The direct
+  Wi-Fi fallback is currently used because phone provisioning remains unresolved.
 - Data may be viewed on phones and computers, including in outdoor conditions.
 
 ## Current Components
@@ -57,16 +58,16 @@ silently disable safe local behavior.
 - Five-probe RS-485 soil sensor (label indicates EC, pH, and NPK options), capacitive soil-moisture sensor, and DHT11.
 - MQ-6 gas sensor, fire sensor, and LDR. PIR sensing was removed from this prototype.
 - Servo motor, two pumps (irrigation and fire), an L298N, an XY-MOS, and the
-  small pump kit's MOS controller. Driver allocation is not yet validated:
+  small pump kit's MOS controller. The operator confirmed bench wiring and functioning hardware on 21 October 2026.
+  Automated physical retesting remains separate from that confirmation. Earlier bring-up notes:
   both pumps spun directly at 3.3 V and 5 V, but rated voltage/current and
   performance through the L298N remain unknown.
 
 The two buck converters already provide the intended 12 V and 5 V rails.
 Solar charging is deferred until an appropriate 5S BMS is available. A generic
 supplier soil-probe manual has arrived, but its settings and measurements are
-not yet validated against this unit. Pump voltages/currents, module output
-voltages, and final pin assignments still
-need confirmation before wiring and firmware are treated as final. See [the
+not yet validated against this unit. The integrated firmware now uses the confirmed bench pin map. Sensor health and
+physical pump delivery still require live checks during standalone testing. See [the
 confirmed prototype architecture](docs/confirmed-system-architecture.md).
 
 ## Product Principles
@@ -94,8 +95,8 @@ device with that farm. The visible QR carries no ownership proof or secret.
 - Existing local firmware/server/dashboard path is available for development.
 - The current firmware telemetry fields and pin map do not yet represent the
   complete updated component list.
-- ThingSpeak, wireless child nodes, and an offline upload queue are not yet
-  implemented.
+- ThingSpeak integration is implemented. Wireless child nodes and a durable
+  offline upload queue remain planned.
 - No farm-trial, crop-yield, or validated agronomic evidence is available; do
   not present unmeasured benefits as proven results.
 - The one-sensor/two-pump/no-valve prototype cannot represent multi-zone
