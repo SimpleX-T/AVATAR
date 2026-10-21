@@ -43,7 +43,10 @@ router port forwarding is required. The dashboard is served at
    `code/include/server_ca.example.h` to the ignored `server_ca.h` and put the
    verified root PEM there. Set `SERVER_BASE_URL` in the ignored `secrets.h` to
    the exact Render HTTPS origin. Keep preconfigured 2.4 GHz Wi-Fi enabled for
-   this prototype. Rebuild and flash the ESP32 over USB.
+   this prototype. For travel between two locations, set the optional
+   `AVATAR_SECONDARY_WIFI_SSID` and `AVATAR_SECONDARY_WIFI_PASSWORD` in the
+   ignored `code/include/secrets.h`; the firmware alternates networks when a
+   connection attempt fails. Rebuild and flash the ESP32 over USB.
 4. Confirm serial logs show clock synchronization and WebSocket connection;
    confirm Render `/api/health` reports `deviceStreamConnected: true` and a
    recent device report. Test a dashboard command and its ESP32 acknowledgement.

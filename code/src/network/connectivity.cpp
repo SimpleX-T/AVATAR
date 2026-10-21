@@ -15,6 +15,14 @@
 #include "state.h"
 #include "timer.h"
 
+#ifndef AVATAR_SECONDARY_WIFI_SSID
+#define AVATAR_SECONDARY_WIFI_SSID ""
+#endif
+
+#ifndef AVATAR_SECONDARY_WIFI_PASSWORD
+#define AVATAR_SECONDARY_WIFI_PASSWORD ""
+#endif
+
 #if __has_include("server_ca.h")
 #include "server_ca.h"
 #else
@@ -35,6 +43,7 @@ bool socketInitialized = false;
 bool wifiAnnounced = false;
 bool tlsClockStarted = false;
 bool tlsConfigurationWarned = false;
+uint32_t wifiAttempts = 0;
 
 bool secureServer()
 {
@@ -134,8 +143,17 @@ void connectWifi(unsigned long now)
         return;
 
     lastWifiAttemptAt = now;
-    Serial.printf("[WIFI] Connecting to %s...\n", provisioning::ssid().c_str());
+#if defined(AVATAR_USE_PRECONFIGURED_WIFI) && AVATAR_USE_PRECONFIGURED_WIFI
+    const bool useSecondary = AVATAR_SECONDARY_WIFI_SSID[0] != '\0' &&
+                              (wifiAttempts++ % 2 == 1);
+    const char *ssid = useSecondary ? AVATAR_SECONDARY_WIFI_SSID : provisioning::ssid().c_str();
+    const char *password = useSecondary ? AVATAR_SECONDARY_WIFI_PASSWORD : provisioning::password().c_str();
+    Serial.printf("[WIFI] Trying %s configured network...\n", useSecondary ? "secondary" : "primary");
+    WiFi.begin(ssid, password);
+#else
+    Serial.println("[WIFI] Trying saved network...");
     WiFi.begin(provisioning::ssid().c_str(), provisioning::password().c_str());
+#endif
 }
 
 void addAuthorization(HTTPClient &http)
@@ -347,6 +365,7 @@ void begin()
     WiFi.setAutoReconnect(false);
     lastWifiAttemptAt = millis() - WIFI_RETRY_INTERVAL;
     lastTelemetryAt = millis() - TELEMETRY_INTERVAL;
+    wifiAttempts = 0;
 }
 
 void update(unsigned long now)
@@ -367,6 +386,7 @@ void update(unsigned long now)
     if (!wifiAnnounced)
     {
         wifiAnnounced = true;
+        wifiAttempts = 0;
         setConnectionLed(true);
         Serial.printf("[WIFI] Connected. ESP32 IP: %s\n", WiFi.localIP().toString().c_str());
     }

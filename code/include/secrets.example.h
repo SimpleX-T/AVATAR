@@ -18,3 +18,9 @@ constexpr char DEVICE_TOKEN[] = "replace-with-the-token-from-server-config";
 #define AVATAR_USE_PRECONFIGURED_WIFI 0
 constexpr char WIFI_SSID[] = "YOUR_WIFI_NAME";
 constexpr char WIFI_PASSWORD[] = "YOUR_WIFI_PASSWORD";
+
+// Optional second 2.4 GHz network for the direct Wi-Fi build. The ESP32
+// alternates between primary and secondary after a failed join; leave these
+// empty if only one network is available.
+#define AVATAR_SECONDARY_WIFI_SSID ""
+#define AVATAR_SECONDARY_WIFI_PASSWORD ""
