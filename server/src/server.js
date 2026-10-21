@@ -123,12 +123,12 @@ function getCookie(request, name) {
 }
 
 async function getAuthenticatedUser(request) {
-  if (!authEnabled) return { userId: "local-development-user" };
+  if (!authEnabled) return { user_id: "local-development-user" };
   const token = getCookie(request, "project-avatar-session");
   if (!token) return null;
 
   try {
-    return await privy.utils().auth().verifyAuthToken(token);
+    return await privy.utils().auth().verifyAccessToken(token);
   } catch {
     return null;
   }
@@ -388,10 +388,10 @@ async function establishUserSession(request, response) {
     : "";
 
   try {
-    const user = await privy.utils().auth().verifyAuthToken(token);
+    const user = await privy.utils().auth().verifyAccessToken(token);
     if (!isOperator(user, operatorIds, production)) {
       return json(response, 403, {
-        error: `This account is not approved to operate Project AVATAR. Privy user ID: ${user.userId}`,
+        error: `This account is not approved to operate Project AVATAR. Privy user ID: ${user.user_id}`,
       });
     }
     const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";

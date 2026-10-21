@@ -8,6 +8,6 @@ export function parseOperatorIds(value = "") {
 }
 
 export function isOperator(user, allowedIds, production) {
-  if (!user?.userId) return false;
-  return !production || allowedIds.has(user.userId);
+  if (!user?.user_id) return false;
+  return !production || allowedIds.has(user.user_id);
 }
