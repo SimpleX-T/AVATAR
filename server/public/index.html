@@ -383,9 +383,10 @@ Setup is a resumable evidence-led flow, not a form on the monitoring screen. -->
                 <details>
                   <summary>Not seeing your field unit?</summary>
                   <p>
-                    Keep the ESP32 and this server on the same Wi-Fi. The ESP32
-                    currently uses Wi-Fi credentials configured before upload.
-                    Local protection continues even if this page cannot connect.
+                    Keep the ESP32 powered and connected to one of its configured
+                    2.4 GHz Wi-Fi networks. It sends readings to this server over
+                    the internet, so your browser can use a different network.
+                    Local protection continues if the connection drops.
                   </p>
                 </details>
                 <button id="setup-continue" class="button" disabled>
