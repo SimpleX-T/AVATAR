@@ -4,8 +4,9 @@ export function numeric(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 export function fieldState(telemetry, now = Date.now()) {
-  const r = telemetry?.readings || {},
-    o = telemetry?.outputs || {};
+  const usbOnly = telemetry?.hardwareProfile === "usb-only";
+  const r = usbOnly ? {} : telemetry?.readings || {},
+    o = usbOnly ? {} : telemetry?.outputs || {};
   const at = Date.parse(telemetry?.receivedAt || "");
   const age = now - at;
   const fresh = Number.isFinite(age) && age >= -5000 && age <= FRESHNESS_MS;
@@ -62,6 +63,7 @@ export function fieldState(telemetry, now = Date.now()) {
   return {
     fresh,
     hardware,
+    usbOnly,
     at,
     age,
     readings: r,

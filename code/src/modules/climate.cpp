@@ -24,12 +24,12 @@ void begin()
         pinMode(MQ6_DO_PIN, INPUT);
         analogSetPinAttenuation(MQ6_AO_PIN, ADC_11db);
     }
-    dht.begin();
+    if (ENABLE_DHT11_INPUT) dht.begin();
 }
 
 void update(unsigned long now)
 {
-    if (elapsedSince(now, lastReadAt, CLIMATE_READ_INTERVAL))
+    if (ENABLE_DHT11_INPUT && elapsedSince(now, lastReadAt, CLIMATE_READ_INTERVAL))
     {
         lastReadAt = now;
         const float humidity = dht.readHumidity();

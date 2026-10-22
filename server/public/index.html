@@ -463,7 +463,7 @@ Setup is a resumable evidence-led flow, not a form on the monitoring screen. -->
                     <span id="profile-ack">Waiting</span>
                   </li>
                   <li>
-                    Recent physical sensor report
+                    Recent ESP32 report
                     <span id="fresh-ack">Waiting</span>
                   </li>
                 </ul>
@@ -524,12 +524,12 @@ Setup is a resumable evidence-led flow, not a form on the monitoring screen. -->
               </div>
             </dl>
             <p class="quiet">
-              Identify your field unit by blinking the external LED wired to
-              GPIO22. Pump and servo actions stay under the local safety controller.
+              Send a cloud command to the ESP32 and wait for its acknowledgement.
+              This tests the connection without requiring sensors, pumps, or an external LED.
             </p>
             <div class="form-actions">
-              <button class="button secondary" data-action="LED_IDENTIFY" disabled>
-                Blink field unit LED
+              <button class="button secondary" data-action="PING" disabled>
+                Test cloud link
               </button>
             </div>
             <p id="command-status" role="status" class="quiet"></p>

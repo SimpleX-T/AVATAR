@@ -77,15 +77,15 @@ test("device WebSocket delivers live observations, commands and profile acknowle
     assert.equal((await live).payload.deviceId, observation.deviceId);
     assert.ok((await accepted).receivedAt);
 
-    const identify = nextMessage(device, (message) => message.type === "command");
+    const ping = nextMessage(device, (message) => message.type === "command");
     const queued = await fetch(base + "/api/commands", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deviceId: observation.deviceId, action: "LED_IDENTIFY" }),
+      body: JSON.stringify({ deviceId: observation.deviceId, action: "PING" }),
     });
     assert.equal(queued.status, 202);
-    const command = (await identify).payload;
-    assert.equal(command.action, "LED_IDENTIFY");
+    const command = (await ping).payload;
+    assert.equal(command.action, "PING");
     const commandStatus = nextMessage(dashboard, (message) => message.event === "command-status");
     device.send(JSON.stringify({
       type: "command-ack",

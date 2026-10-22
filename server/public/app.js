@@ -165,23 +165,27 @@ function render() {
         : "Waiting for sensor";
   text(
     "temperature-note",
-    numeric(r.temperatureC) === null ? "No valid DHT11 reading" : provenance,
+    f.usbOnly ? "Sensor not connected" :
+      numeric(r.temperatureC) === null ? "No valid DHT11 reading" : provenance,
   );
   text(
     "humidity-note",
-    numeric(r.humidityPercent) === null ? "No valid DHT11 reading" : provenance,
+    f.usbOnly ? "Sensor not connected" :
+      numeric(r.humidityPercent) === null ? "No valid DHT11 reading" : provenance,
   );
   text(
     "soil-note",
-    !f.soilValid
-      ? "Sensor missing or invalid"
-      : !fresh
-        ? "Last recorded observation"
-        : r.soilDry === true
-          ? "Dry soil reported"
-          : r.soilDry === false
-            ? "Wet / below dry threshold"
-            : "Raw sensor reading",
+    f.usbOnly
+      ? "Sensor not connected"
+      : !f.soilValid
+        ? "Sensor missing or invalid"
+        : !fresh
+          ? "Last recorded observation"
+          : r.soilDry === true
+            ? "Dry soil reported"
+            : r.soilDry === false
+              ? "Wet / below dry threshold"
+              : "Raw sensor reading",
   );
   text(
     "connection-value",
@@ -206,7 +210,9 @@ function render() {
     fresh
       ? simulated
         ? "Simulation connected"
-        : "Field unit reporting"
+        : f.usbOnly
+          ? "ESP32 reporting · USB test"
+          : "Field unit reporting"
       : t
         ? "Field report is stale"
         : "Waiting for field unit",
@@ -246,21 +252,27 @@ function render() {
   text(
     "overview-summary",
     fresh
-      ? "Your latest field observations, with local protection status."
+      ? f.usbOnly
+        ? "ESP32 cloud connection is live. Greenhouse sensors and controls are not connected."
+        : "Your latest field observations, with local protection status."
       : t
         ? "Your field unit has not reported recently. Last observations are shown."
         : "Waiting for the field unit. Missing readings are shown as dashes.",
   );
   const alarm = f.fire[2] === "danger" || f.water[2] === "danger";
   const sensorGaps = [];
-  if (fresh && f.hardware) {
+  if (fresh && f.hardware && !f.usbOnly) {
     if (!f.soilValid) sensorGaps.push("soil input is invalid");
     if (numeric(r.temperatureC) === null || numeric(r.humidityPercent) === null)
       sensorGaps.push("DHT11 is not returning valid readings");
     if (r.fireSensorReady !== true)
       sensorGaps.push("fire detector is not armed");
   }
-  $("field-alert").hidden = !alarm && sensorGaps.length === 0;
+  $("field-alert").hidden = !alarm && sensorGaps.length === 0 && !(fresh && f.usbOnly);
+  if (fresh && f.usbOnly) {
+    $("field-alert").className = "notice";
+    text("field-alert", "USB-only test: the ESP32 is online, but greenhouse sensors, pumps, servo, and external LED are disconnected.");
+  }
   if (!alarm && sensorGaps.length) {
     $("field-alert").className = "notice";
     text(
@@ -291,24 +303,28 @@ function render() {
     "gas-badge",
     numeric(r.mq6Raw) === null ? "No data" : fmt(r.mq6Raw) + " ADC",
   );
-  text("gas-detail", "MQ-6 · uncalibrated raw signal");
+  text("gas-detail", f.usbOnly ? "MQ-6 not connected" : "MQ-6 · uncalibrated raw signal");
   text(
     "local-control-note",
-    !fresh
-      ? "Protection state is unknown from this dashboard. Local control runs on the ESP32."
-      : o.controllerReady
-        ? "Local controller reports ready. Pump status describes commands, not confirmed water flow."
-        : "Controller is initialising or awaiting a stable detector. Check the field unit.",
+    f.usbOnly
+      ? "Greenhouse protection is unavailable until sensors and outputs are connected and tested."
+      : !fresh
+        ? "Protection state is unknown from this dashboard. Local control runs on the ESP32."
+        : o.controllerReady
+          ? "Local controller reports ready. Pump status describes commands, not confirmed water flow."
+          : "Controller is initialising or awaiting a stable detector. Check the field unit.",
   );
   $("setup-nudge").hidden = Boolean(state.farm?.deviceSyncedAt);
   $("setup-nav-dot").hidden = Boolean(state.farm?.deviceSyncedAt);
   text(
     "readings-source",
-    simulated
-      ? "SIMULATION"
-      : state.source === "thingspeak"
-        ? "CLOUD OBSERVATION"
-        : "PHYSICAL FIELD REPORT",
+    f.usbOnly
+      ? "USB-ONLY DEVICE REPORT"
+      : simulated
+        ? "SIMULATION"
+        : state.source === "thingspeak"
+          ? "CLOUD OBSERVATION"
+          : "PHYSICAL FIELD REPORT",
   );
   text(
     "readings-timestamp",
@@ -316,7 +332,7 @@ function render() {
   );
   text(
     "device-mode",
-    t ? (simulated ? "Simulation" : "Physical hardware") : "Unknown mode",
+    t ? (simulated ? "Simulation" : f.usbOnly ? "ESP32 · USB only" : "Physical hardware") : "Unknown mode",
   );
   text("device-id", t?.deviceId || "—");
   text(
@@ -353,21 +369,21 @@ function renderSensorRows(f) {
       "Air temperature",
       "DHT11 · degrees Celsius",
       fmt(r.temperatureC, 1) + " °C",
-      numeric(r.temperatureC) !== null ? "Observed" : "No valid reading",
+      f.usbOnly ? "Not connected" : numeric(r.temperatureC) !== null ? "Observed" : "No valid reading",
     ],
     [
       "Relative humidity",
       "DHT11 · moisture in air",
       fmt(r.humidityPercent, 1) + " %",
-      numeric(r.humidityPercent) !== null ? "Observed" : "No valid reading",
+      f.usbOnly ? "Not connected" : numeric(r.humidityPercent) !== null ? "Observed" : "No valid reading",
     ],
     [
       "Soil moisture",
       "Capacitive probe · raw ADC",
       fmt(f.soilRaw),
-      f.soilValid ? "Observed" : "Invalid / missing",
+      f.usbOnly ? "Not connected" : f.soilValid ? "Observed" : "Invalid / missing",
     ],
-    ["Atmosphere signal", "MQ-6 · raw ADC", fmt(r.mq6Raw), "Uncalibrated"],
+    ["Atmosphere signal", "MQ-6 · raw ADC", fmt(r.mq6Raw), f.usbOnly ? "Not connected" : numeric(r.mq6Raw) === null ? "No valid reading" : "Uncalibrated"],
     ...[
       ["pH register", "ph"],
       ["Electrical conductivity register", "ec"],
@@ -378,7 +394,7 @@ function renderSensorRows(f) {
       label,
       "RS-485 probe · raw register value",
       fmt(valid > 0 ? raw[key] : null),
-      numeric(raw[key]) !== null && valid > 0
+      f.usbOnly ? "Not connected" : numeric(raw[key]) !== null && valid > 0
         ? "Unverified units"
         : "No valid register",
     ]),
@@ -403,13 +419,15 @@ function renderSensorRows(f) {
   }
 }
 function renderTrend() {
-  const rows = temperaturePoints(state.history);
+  const usbOnly = fieldState(state.latest).usbOnly;
+  const rows = usbOnly ? [] : temperaturePoints(state.history);
   const root = $("trend");
   root.replaceChildren();
   if (rows.length < 2) {
     root.className = "trend-empty";
-    root.textContent =
-      "Two valid temperature observations are needed to show a trend.";
+    root.textContent = usbOnly
+      ? "Connect the DHT11 before collecting a temperature trend."
+      : "Two valid temperature observations are needed to show a trend.";
     return;
   }
   root.className = "trend-chart";
@@ -479,19 +497,24 @@ function renderTrend() {
 function renderReports() {
   const farm = state.farm,
     report = state.report,
-    eligible = report?.eligible === true;
-  const message = !farm
-    ? "Finish greenhouse setup to start your research record."
-    : !farm.deviceSyncedAt
-      ? "Waiting for the field unit to confirm setup. The 12-hour clock starts after acknowledgement."
-      : eligible
-        ? "Your first 12-hour window is complete. The report requires recorded ThingSpeak history."
-        : `Your report unlocks ${new Date(report.eligibleAt).toLocaleString()}. The clock started when the ESP32 confirmed setup.`;
+    usbOnly = fieldState(state.latest).usbOnly,
+    eligible = report?.eligible === true && !usbOnly;
+  const message = usbOnly
+    ? "USB-only test: research measurements are unavailable until the sensors are connected."
+    : !farm
+      ? "Finish greenhouse setup to start your research record."
+      : !farm.deviceSyncedAt
+        ? "Waiting for the field unit to confirm setup. The 12-hour clock starts after acknowledgement."
+        : eligible
+          ? "Your first 12-hour window is complete. The report requires recorded ThingSpeak history."
+          : `Your report unlocks ${new Date(report.eligibleAt).toLocaleString()}. The clock started when the ESP32 confirmed setup.`;
   text("report-status", message);
   text("report-summary", message);
   text(
     "report-state",
-    !farm
+    usbOnly
+      ? "SENSORS NOT CONNECTED"
+      : !farm
       ? "SETUP NEEDED"
       : !farm.deviceSyncedAt
         ? "WAITING FOR DEVICE"
@@ -517,7 +540,7 @@ function renderSetup() {
   text(
     "setup-device-status",
     activated.receiving
-      ? "Physical field report received at " + time(state.latest.receivedAt)
+      ? (f.usbOnly ? "ESP32 USB test report received at " : "Physical field report received at ") + time(state.latest.receivedAt)
       : state.latest?.mode === "simulation"
         ? "Simulation data is not physical commissioning evidence."
         : f.fresh
@@ -533,7 +556,7 @@ function renderSetup() {
   text("profile-ack", activated.profileSaved ? "Confirmed ✓" : "Waiting");
   text(
     "fresh-ack",
-    activated.receiving && activated.matching ? "Confirmed ✓" : "Waiting",
+    activated.receiving && activated.matching ? (f.usbOnly ? "ESP32 link confirmed ✓" : "Confirmed ✓") : "Waiting",
   );
   const success = activated.ready;
   text(
@@ -543,7 +566,9 @@ function renderSetup() {
   text(
     "setup-confirm-copy",
     success
-      ? "The ESP32 confirmed your greenhouse details and is sending hardware reports. Open the dashboard to review sensor health before the physical test."
+      ? f.usbOnly
+        ? "The ESP32 saved your details and is reporting over Wi-Fi. Sensors and outputs are not connected during this USB test."
+        : "The ESP32 confirmed your greenhouse details and is sending hardware reports. Open the dashboard to review sensor health before the physical test."
       : "Your details are saved on the server. Keep the ESP32 connected while it confirms on-chip storage.",
   );
   text(
@@ -553,7 +578,9 @@ function renderSetup() {
       : !activated.matching && state.latest
         ? "The reporting device does not match this profile. Review details before continuing."
         : success
-          ? "Connection and profile verified. The research window has started; sensor health is checked separately."
+          ? f.usbOnly
+            ? "Connection and profile verified. No physical greenhouse measurements or controls are available yet."
+            : "Connection and profile verified. The research window has started; sensor health is checked separately."
           : !activated.receiving
             ? "The field report is stale. Reconnect the ESP32; your saved details are kept."
             : "Still waiting for the field unit acknowledgement. You can leave this page and return.",
@@ -586,28 +613,32 @@ function renderFigureReadout() {
     controller: [
       "ESP32 field unit",
       f.fresh
-        ? `Recent report from ${state.latest.deviceId}. Decisions run locally; this drawing is a system schematic.`
+        ? f.usbOnly
+          ? `Recent report from ${state.latest.deviceId}. This ESP32 is powered by USB with no greenhouse board connected.`
+          : `Recent report from ${state.latest.deviceId}. Decisions run locally; this drawing is a system schematic.`
         : "Waiting for a recent report. Local protection does not depend on this page.",
     ],
     soil: [
       "Soil observation",
       f.soilValid
         ? `${fmt(f.soilRaw)} raw ADC. ${r.soilDry === true ? "Dry soil reported." : "Dryness is interpreted by the local controller."}`
-        : "The soil input is missing or invalid. Check the capacitive sensor before testing irrigation.",
+        : f.usbOnly
+          ? "Soil sensor and irrigation hardware are not connected."
+          : "The soil input is missing or invalid. Check the capacitive sensor before testing irrigation.",
     ],
     irrigation: [
       "Irrigation system",
-      f.water[1] + ". Water flow is not independently measured.",
+      f.usbOnly ? "Irrigation hardware is not connected." : f.water[1] + ". Water flow is not independently measured.",
     ],
     fire: [
       "Fire protection",
-      f.fire[1] + ". The controller uses bounded response bursts.",
+      f.usbOnly ? "Fire sensor and response hardware are not connected." : f.fire[1] + ". The controller uses bounded response bursts.",
     ],
     climate: [
       "Climate sensor",
       numeric(r.temperatureC) !== null
         ? `${fmt(r.temperatureC, 1)} °C · ${fmt(r.humidityPercent, 1)} % RH from the latest DHT11 report.`
-        : "The DHT11 has not returned a valid climate observation.",
+        : f.usbOnly ? "DHT11 is not connected." : "The DHT11 has not returned a valid climate observation.",
     ],
   };
   const [title, description] = copy[state.selected];
@@ -767,7 +798,7 @@ async function sendCommand(action) {
     } else {
       state.pendingCommands.set(data.commandId, { action, at: Date.now() });
       text("command-status", "Queued. Waiting for the field unit to acknowledge.");
-      log("Identify LED request queued; not yet applied.");
+      log("Cloud link test queued; waiting for ESP32 acknowledgement.");
     }
     render();
   } catch (e) {
@@ -776,7 +807,7 @@ async function sendCommand(action) {
 }
 function showCommandStatus(status) {
   const label = status.applied
-    ? "Field unit accepted the blink request. Check the external LED on GPIO22."
+    ? "ESP32 acknowledged the cloud command. No external hardware was tested."
     : status.error || "Field unit rejected the command.";
   text("command-status", label);
   log(label, status.acknowledgedAt);
@@ -809,7 +840,7 @@ function connect() {
       const p = message.payload;
       if (state.pendingCommands.delete(p.commandId)) {
         showCommandStatus(p);
-      } else if (p.action === "LED_IDENTIFY") {
+      } else if (p.action === "PING") {
         // The acknowledgement can reach this socket before the POST returns.
         state.recentCommandStatuses.set(p.commandId, p);
         if (state.recentCommandStatuses.size > 20)

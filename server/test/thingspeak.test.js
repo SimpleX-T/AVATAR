@@ -40,6 +40,16 @@ test("does not archive a floating disconnected soil input as a measurement", () 
   assert.equal(entries.soil.field6, undefined);
   assert.equal(entries.soil.field8, undefined);
 });
+test("USB-only reports archive no peripheral measurements or output states", () => {
+  const entries = toThingSpeakEntries({ ...sample, hardwareProfile: "usb-only" });
+  assert.deepEqual(Object.keys(entries.soil), ["status"]);
+  assert.deepEqual(Object.keys(entries.environment), ["status"]);
+  const asFeed = (entry) => ({ feeds: [{ ...entry, created_at: "2026-10-22T10:00:00Z" }] });
+  const restored = fromThingSpeakFeeds(asFeed(entries.soil), asFeed(entries.environment));
+  assert.equal(restored.hardwareProfile, "usb-only");
+  assert.equal(restored.readings.temperatureC, null);
+  assert.equal(restored.readings.soilRaw, null);
+});
 
 test("round-trips channel data without inventing calibrated NPK units", () => {
   const entries = toThingSpeakEntries(sample);

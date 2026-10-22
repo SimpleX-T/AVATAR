@@ -7,6 +7,11 @@ WebSocket when available, with HTTPS telemetry and command polling as fallback; 
 router port forwarding is required. The dashboard is served at
 `https://<service>.onrender.com/` once the service exists.
 
+Current test configuration: the ESP32 is powered over USB without the greenhouse
+board. All external sensor inputs and actuator outputs are disabled. The dashboard
+can verify reporting and command acknowledgement, but cannot verify protection
+or physical readings until the board is reconnected and checked.
+
 ## What is ready in this repository
 
 - `render.yaml` defines one Node service, a 1 GB persistent disk for farm

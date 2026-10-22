@@ -215,6 +215,7 @@ bool sendTelemetry()
     JsonDocument document;
     document["deviceId"] = DEVICE_ID;
     document["mode"] = SIMULATION_MODE ? "simulation" : "hardware";
+    document["hardwareProfile"] = USB_ONLY_TEST ? "usb-only" : "wired";
     document["uptimeMs"] = millis();
     document["wifiRssi"] = WiFi.RSSI();
 
@@ -228,8 +229,11 @@ bool sendTelemetry()
         readings["soilRaw"] = snapshot.sensors.soilRaw;
         readings["soilDry"] = snapshot.sensors.soilDry;
     }
-    readings["fireDetected"] = snapshot.sensors.fireDetected;
-    readings["fireRawLow"] = snapshot.sensors.fireRawLow;
+    if (snapshot.sensors.fireSensorEnabled)
+    {
+        readings["fireDetected"] = snapshot.sensors.fireDetected;
+        readings["fireRawLow"] = snapshot.sensors.fireRawLow;
+    }
     readings["fireSensorReady"] = snapshot.sensors.fireSensorReady;
     readings["fireSensorEnabled"] = snapshot.sensors.fireSensorEnabled;
     if (snapshot.sensors.mq6Raw >= 0) readings["mq6Raw"] = snapshot.sensors.mq6Raw;
@@ -310,6 +314,14 @@ bool applyCommand(const String &payload, String &commandId, String &action)
     {
         Serial.println("[COMMAND] Simulation actions require simulation mode.");
         return false;
+    }
+
+    if (action == "PING")
+    {
+        lastHandledCommandId = commandId;
+        lastHandledCommandApplied = true;
+        Serial.printf("[COMMAND] Received cloud link test (%s)\n", commandId.c_str());
+        return true;
     }
 
     lockSystemState();

@@ -31,8 +31,9 @@ Their eight fields, in order, are:
 | 7 | Probe valid-register count, 0–5 | Fire pump commanded, 0/1 |
 | 8 | Soil dry, 0/1 | Controller ready, 0/1 |
 
-The capacitive soil sensor is currently disconnected, so fields 6 and 8 in
-the soil channel remain empty until the probe is installed and validated.
+The ESP32 is currently on USB without the greenhouse board. Both channels
+receive only a device status record; all measurement and output fields remain
+empty until their peripherals are connected and validated.
 
 The channel status field carries brief event/fault metadata. NPK, pH and EC
 numbers are deliberately labelled **raw register values**, not nutrient

@@ -17,6 +17,10 @@ function fields(values) {
 }
 
 export function toThingSpeakEntries(telemetry) {
+  if (telemetry.hardwareProfile === "usb-only") {
+    const status = JSON.stringify({ deviceId: telemetry.deviceId, hardwareProfile: "usb-only" });
+    return { soil: { status }, environment: { status } };
+  }
   const readings = telemetry.readings || {};
   const outputs = telemetry.outputs || {};
   const probe = readings.probe || {};
@@ -43,7 +47,8 @@ export function toThingSpeakEntries(telemetry) {
       ...fields([
         numeric(readings.temperatureC), numeric(readings.humidityPercent),
         numeric(readings.mq6Raw), numeric(readings.mq6Digital),
-        flag(readings.fireDetected), flag(outputs.irrigation),
+        readings.fireSensorEnabled === true ? flag(readings.fireDetected) : null,
+        flag(outputs.irrigation),
         flag(outputs.fireResponse), flag(outputs.controllerReady),
       ]),
       status: JSON.stringify(faults),
@@ -83,6 +88,7 @@ export function fromThingSpeakFeeds(soilFeed, environmentFeed, fallback = null) 
   return {
     deviceId: status.deviceId || fallback?.deviceId || null,
     mode: "hardware",
+    hardwareProfile: status.hardwareProfile || null,
     source: "thingspeak",
     receivedAt: environment?.created_at || soil?.created_at || null,
     // Wi-Fi RSSI belongs to a local device heartbeat, not this cloud entry.

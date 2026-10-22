@@ -30,6 +30,30 @@ test("missing or rail-valued sensors never become healthy zeroes", () => {
   assert.equal(s.water[0], "No reading");
   assert.equal(s.canCommand, true);
 });
+test("USB-only reports confirm the chip link without claiming peripheral readings", () => {
+  const disconnected = {
+    ...sample,
+    hardwareProfile: "usb-only",
+    readings: {
+      temperatureC: 31,
+      humidityPercent: 70,
+      soilRaw: 2100,
+      soilValid: true,
+      soilSensorEnabled: true,
+      fireDetected: false,
+      fireSensorEnabled: true,
+      fireSensorReady: true,
+    },
+    outputs: { controllerReady: true },
+  };
+  const state = fieldState(disconnected, now);
+  assert.equal(state.usbOnly, true);
+  assert.equal(state.readings.temperatureC, undefined);
+  assert.equal(state.soilValid, false);
+  assert.equal(state.fire[0], "No reading");
+  assert.equal(state.water[0], "No reading");
+  assert.equal(state.canCommand, true);
+});
 test("stale, future and absent reports cannot enable commands or assert protection", () => {
   for (const receivedAt of [
     "bad",

@@ -7,17 +7,17 @@
 // possible without changing the control flow.
 constexpr unsigned long SERIAL_BAUD = 115200;
 
-// Physical bench wiring and external supplies confirmed by the operator.
-// Local bounded control remains independent of the network task.
+// Current deployment: ESP32 powered by USB, no greenhouse board attached.
+// Enable inputs/outputs individually only after reconnecting and checking wiring.
 constexpr bool SIMULATION_MODE = false;
-constexpr bool ENABLE_PUMP_OUTPUTS = true;
-constexpr bool ENABLE_SERVO_OUTPUT = true;
-constexpr bool ENABLE_FIRE_SENSOR_INPUT = true;
-// The capacitive probe is not connected in the current build. A floating GPIO35
-// can look like a valid ADC value, so leave irrigation disabled until wired.
+constexpr bool USB_ONLY_TEST = true;
+constexpr bool ENABLE_PUMP_OUTPUTS = false;
+constexpr bool ENABLE_SERVO_OUTPUT = false;
+constexpr bool ENABLE_DHT11_INPUT = false;
+constexpr bool ENABLE_FIRE_SENSOR_INPUT = false;
 constexpr bool ENABLE_SOIL_MOISTURE_INPUT = false;
-constexpr bool ENABLE_MQ6_INPUT = true; // Both AO and DO must be divided to <=3.3 V.
-constexpr bool ENABLE_RS485_PROBE = true; // MAX485 RO must be level shifted.
+constexpr bool ENABLE_MQ6_INPUT = false; // Both AO and DO must be divided to <=3.3 V.
+constexpr bool ENABLE_RS485_PROBE = false; // MAX485 RO must be level shifted.
 
 // Network
 constexpr unsigned long WIFI_RETRY_INTERVAL = 30000;

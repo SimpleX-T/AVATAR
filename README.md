@@ -8,7 +8,7 @@ irrigation/fire response, and remote data access. It is a working system
 prototype, not only a sensor-to-actuator demonstration. Raw probe registers
 and gas readings remain research measurements until calibrated and validated.
 
-The current physical build uses a 38-pin ESP32 and a 5S battery already stepped
+The assembled greenhouse uses a 38-pin ESP32 and a 5S battery already stepped
 down to 12 V, then to 5 V by a second buck converter. It includes a five-probe
 RS-485 multi-parameter soil sensor, capacitive soil-moisture sensor, DHT11,
 MQ-6 gas sensor, fire sensor,
@@ -16,11 +16,13 @@ servo, two pumps, an L298N board, an XY-MOS board, and the smaller pump's
 included MOS controller. The soil-probe supplier has provided a **generic**
 Modbus manual; its settings and enabled measurements still need verification
 against this exact unit. Child sensor nodes and their LoRa/Wi-Fi links are
-future expansion; sensors are wired to the head-node in this prototype.
+future expansion. During the current cloud test the ESP32 is on this computer's
+USB port and is disconnected from the greenhouse board.
 
 **Implemented now:** modular ESP32 firmware with a capacitive soil sensor,
 DHT11, divided MQ-6 inputs, read-only RS-485 soil registers, independent
-bounded fire/water responses, and L298N pump outputs enabled in the current bench build;
+bounded fire/water responses, with external sensor inputs and outputs disabled
+for the current USB-only test;
 a Node.js telemetry server and a browser dashboard; and optional server-side
 private ThingSpeak publishing/reading, with two private research channels
 configured locally; preconfigured Wi-Fi in the current bench build, an on-chip
@@ -106,18 +108,20 @@ server-only and must never be committed. Browser users receive an HTTP-only,
 same-site session after the server verifies their Privy access token. The ESP32
 continues to authenticate separately with its device token.
 
-The current firmware settings are in `code/include/config.h`. Sensor inputs and
-pump/servo outputs are enabled in the assembled bench target after the operator
-confirmed the wiring. A successful build does not establish physical delivery
+The current firmware settings are in `code/include/config.h`. The ESP32 is
+USB-only for the cloud test, so all external sensor inputs and pump/servo outputs
+are disabled. A cloud report verifies the chip connection, not physical delivery
 or sensor calibration. MQ-6 AO/DO and MAX485 RO must have their 5 V outputs
-divided or level shifted before the ESP32.
+divided or level shifted before reconnecting them to the ESP32.
 
 ```cpp
 constexpr bool SIMULATION_MODE = false;
-constexpr bool ENABLE_PUMP_OUTPUTS = true;
-constexpr bool ENABLE_SERVO_OUTPUT = true;
-constexpr bool ENABLE_FIRE_SENSOR_INPUT = true;
-constexpr bool ENABLE_SOIL_MOISTURE_INPUT = false; // Probe is currently disconnected.
+constexpr bool USB_ONLY_TEST = true;
+constexpr bool ENABLE_PUMP_OUTPUTS = false;
+constexpr bool ENABLE_SERVO_OUTPUT = false;
+constexpr bool ENABLE_DHT11_INPUT = false;
+constexpr bool ENABLE_FIRE_SENSOR_INPUT = false;
+constexpr bool ENABLE_SOIL_MOISTURE_INPUT = false;
 ```
 
 The pump and servo flags are separate; keep their physical safety bounds and
@@ -125,10 +129,9 @@ verify actual output before relying on them.
 
 ## Current prototype status
 
-- The firmware targets an ESP32 DevKit. Its telemetry uses a fire sensor,
-  DHT11, MQ-6 and raw pH/EC/N/P/K registers. The capacitive soil sensor is
-  disconnected in this build: its reading is unavailable and automatic
-  irrigation is disabled until the probe is wired and validated.
+- The firmware targets an ESP32 DevKit. In this USB-only build, temperature,
+  humidity, soil, gas, fire and RS-485 values are unavailable; pumps, servo and
+  automatic protection are disabled. The cloud connection can still be tested.
 - The ESP32 reports to the hosted Node server every five seconds over a secure
   WebSocket when available, with verified HTTPS telemetry and command polling
   as fallback. The dashboard receives fresh server observations over its own
@@ -262,15 +265,16 @@ upload again to restore the phone provisioning flow.
 This fallback does not resolve the outstanding phone provisioning timeout.
 Wi-Fi connection and delivery to the dashboard server require separate checks.
 
-## Standalone field test (21 October 2026)
+## USB-only cloud test (22 October 2026)
 
-The integrated ESP32 build now uses the operator-confirmed bench wiring with
-pump and servo outputs enabled. Automatic Wi-Fi uses the ignored local
-`secrets.h` fallback. Fire and irrigation retain bounded bursts, sensor checks,
-independent recovery, and fire priority. Physical performance must still be
-observed on the assembled system; a firmware build is not a pump-delivery test.
+The current ESP32 is on USB without the greenhouse board. All external sensor
+inputs and actuator outputs are disabled. Automatic Wi-Fi uses the ignored local
+`secrets.h` fallback. The dashboard's **Test cloud link** command checks that
+the ESP32 receives and acknowledges a remote command; it does not test sensors,
+pumps, servo, or the external status LED.
 
-Local control runs on the ESP32 without this computer. The browser dashboard,
+When reconnected to the board and individually commissioned, local control runs
+on the ESP32 without this computer. The browser dashboard,
 authentication, research reports, and current ThingSpeak publishing bridge
 still run on the Node.js server. Keep that server on for browser/cloud access.
 The ESP32 reconnects when Wi-Fi or the server returns.

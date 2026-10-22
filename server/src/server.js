@@ -368,6 +368,7 @@ async function enqueueCommand(request, response) {
       "LED_ON",
       "LED_OFF",
       "LED_IDENTIFY",
+      "PING",
     ]);
 
     if (!payload.deviceId || !allowedActions.has(payload.action)) {

@@ -124,20 +124,21 @@ Node server :8787
                        ▼
                   Web dashboard
 
-Dashboard identify command
+Dashboard Test cloud link command
        │
        ▼
 Node command queue
        │ WebSocket push, HTTPS polling fallback
        ▼
-ESP32 blinks external status LED and acknowledges
+ESP32 acknowledges in its USB serial log; no external LED is required
 ```
 
 The regular telemetry interval is five seconds; event changes trigger an earlier
 report to the server. Fire detection and pump time limits run locally at their
-own faster cadence. ThingSpeak archives at most one sample per minute. The
-capacitive soil sensor is disconnected, so its reading is unavailable and
-automatic irrigation is disabled. ThingSpeak publishing and private readback are available
+own faster cadence when the board is connected and commissioned. ThingSpeak
+archives at most one sample per minute. During the current USB-only test, all
+external sensors and outputs are disabled, so no peripheral readings are
+available. ThingSpeak publishing and private readback are available
 after [channel setup](thingspeak-setup.md). Durable offline buffering remains
 unimplemented.
 
