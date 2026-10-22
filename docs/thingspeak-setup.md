@@ -1,9 +1,11 @@
 # ThingSpeak setup for AVATAR greenhouse research
 
-The modular ESP32 sends one telemetry snapshot per minute to the AVATAR
-server. The server writes two **private** ThingSpeak channels over HTTPS. The
-farmer dashboard reads those channels through the server; keys never appear in
-browser code. The controller still acts locally when either network is down.
+The modular ESP32 sends a live telemetry snapshot to the AVATAR server about
+every five seconds. The server writes the newest sample to two **private**
+ThingSpeak channels over HTTPS at most once per minute. The dashboard shows
+fresh server observations first and can read the slower ThingSpeak archive
+through the server; keys never appear in browser code. The controller still
+acts locally when either network is down.
 Pump/fault events also trigger an early ESP32 report to the server, so an
 already-open dashboard can display an alert sooner than the cloud history
 update. Email, SMS and push notifications are **not** implemented.
@@ -29,6 +31,9 @@ Their eight fields, in order, are:
 | 7 | Probe valid-register count, 0–5 | Fire pump commanded, 0/1 |
 | 8 | Soil dry, 0/1 | Controller ready, 0/1 |
 
+The capacitive soil sensor is currently disconnected, so fields 6 and 8 in
+the soil channel remain empty until the probe is installed and validated.
+
 The channel status field carries brief event/fault metadata. NPK, pH and EC
 numbers are deliberately labelled **raw register values**, not nutrient
 concentrations or calibrated pH/EC units. Pump fields show commands, **not**
@@ -49,10 +54,8 @@ may be replaced rather than replayed. This avoids an unbounded queue but does
 
 1. Start the server with `cd server && npm start`, then send a device telemetry report.
 2. Wait about one minute; confirm a new entry in **each** private channel.
-3. Open the AVATAR site and check that **Recorded source** says
-   “Private ThingSpeak channels.” The site polls the private feeds through
-   its server; it does not silently substitute a fresh local reading when
-   ThingSpeak is unavailable.
+3. Open the AVATAR site and confirm fresh readings come from the field unit.
+   The private ThingSpeak channels are the slower research archive and fallback.
 4. Disconnect internet access briefly. Local sensor and pump decisions should
    continue; the site should show a cloud-unavailable/stale state.
 

@@ -40,10 +40,18 @@ unsigned long lastSocketAttemptAt = 0;
 WebSocketsClient deviceSocket;
 bool socketConnected = false;
 bool socketInitialized = false;
+bool socketHandshakePending = false;
 bool wifiAnnounced = false;
 bool tlsClockStarted = false;
 bool tlsConfigurationWarned = false;
 uint32_t wifiAttempts = 0;
+String lastHandledCommandId;
+bool lastHandledCommandApplied = false;
+unsigned long identifyStartedAt = 0;
+bool identifying = false;
+
+bool applyCommand(const String &payload, String &commandId, String &action);
+void acknowledgeCommand(const String &commandId, const String &action, bool applied);
 
 bool secureServer()
 {
@@ -90,23 +98,44 @@ struct DeviceHttpRequest
     }
 };
 
-void onSocketEvent(WStype_t type, uint8_t *, size_t)
+void onSocketEvent(WStype_t type, uint8_t *payload, size_t length)
 {
     if (type == WStype_CONNECTED)
     {
         socketConnected = true;
+        socketHandshakePending = false;
+        lastTelemetryAt = millis() - TELEMETRY_INTERVAL;
         Serial.println("[WS] Device stream connected.");
     }
     else if (type == WStype_DISCONNECTED)
     {
         socketConnected = false;
-        Serial.println("[WS] Device stream disconnected.");
+        socketHandshakePending = false;
+        socketInitialized = false;
+        if (payload && length)
+            Serial.printf("[WS] Device stream disconnected: %.*s\n",
+                          static_cast<int>(min(length, size_t(80))), payload);
+        else
+            Serial.println("[WS] Device stream disconnected.");
+    }
+    else if (type == WStype_TEXT)
+    {
+        JsonDocument message;
+        if (deserializeJson(message, payload, length) || message["type"] != "command") return;
+        String commandId;
+        String action;
+        String command;
+        serializeJson(message["payload"], command);
+        const bool applied = applyCommand(command, commandId, action);
+        acknowledgeCommand(commandId, action, applied);
     }
 }
 
 void connectSocket(unsigned long now)
 {
-    if (socketInitialized || !elapsedSince(now, lastSocketAttemptAt, WEBSOCKET_RECONNECT_INTERVAL))
+    const unsigned long retryInterval = secureServer() ? CLOUD_WEBSOCKET_RECONNECT_INTERVAL
+                                                        : WEBSOCKET_RECONNECT_INTERVAL;
+    if (socketInitialized || !elapsedSince(now, lastSocketAttemptAt, retryInterval))
         return;
 
     lastSocketAttemptAt = now;
@@ -126,14 +155,29 @@ void connectSocket(unsigned long now)
         deviceSocket.begin(host.c_str(), serverPort, "/ws/device");
     deviceSocket.setExtraHeaders(headers.c_str());
     deviceSocket.onEvent(onSocketEvent);
+    // The library applies this delay to its very first attempt too. Our own
+    // retry scheduler above handles the longer cloud backoff after failures.
     deviceSocket.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL);
     deviceSocket.enableHeartbeat(15000, 3000, 2);
     socketInitialized = true;
+    socketHandshakePending = true;
 }
 
 void setConnectionLed(bool connected)
 {
     digitalWrite(STATUS_LED_PIN, connected ? HIGH : LOW);
+}
+
+void updateIdentifyLed(unsigned long now)
+{
+    if (!identifying) return;
+    if (now - identifyStartedAt >= 4000)
+    {
+        identifying = false;
+        setConnectionLed(WiFi.status() == WL_CONNECTED);
+        return;
+    }
+    digitalWrite(STATUS_LED_PIN, ((now - identifyStartedAt) / 250) % 2 == 0 ? LOW : HIGH);
 }
 
 void connectWifi(unsigned long now)
@@ -177,10 +221,13 @@ bool sendTelemetry()
     JsonObject readings = document["readings"].to<JsonObject>();
     readings["temperatureC"] = snapshot.sensors.temperatureC;
     readings["humidityPercent"] = snapshot.sensors.humidityPercent;
-    readings["soilRaw"] = snapshot.sensors.soilRaw;
     readings["soilValid"] = snapshot.sensors.soilValid;
-    readings["soilDry"] = snapshot.sensors.soilDry;
     readings["soilSensorEnabled"] = snapshot.sensors.soilSensorEnabled;
+    if (snapshot.sensors.soilSensorEnabled && snapshot.sensors.soilValid)
+    {
+        readings["soilRaw"] = snapshot.sensors.soilRaw;
+        readings["soilDry"] = snapshot.sensors.soilDry;
+    }
     readings["fireDetected"] = snapshot.sensors.fireDetected;
     readings["fireRawLow"] = snapshot.sensors.fireRawLow;
     readings["fireSensorReady"] = snapshot.sensors.fireSensorReady;
@@ -223,7 +270,8 @@ bool sendTelemetry()
         envelope["type"] = "telemetry";
         envelope["payload"].set(document);
         serializeJson(envelope, body);
-        return deviceSocket.sendTXT(body);
+        if (deviceSocket.sendTXT(body)) return true;
+        socketConnected = false;
     }
 
     serializeJson(document, body);
@@ -255,6 +303,8 @@ bool applyCommand(const String &payload, String &commandId, String &action)
     action = String(document["action"] | "");
     commandId = String(document["commandId"] | "");
     const unsigned long now = millis();
+    if (!commandId.isEmpty() && commandId == lastHandledCommandId)
+        return lastHandledCommandApplied;
 
     if (!SIMULATION_MODE && (action.startsWith("SIMULATE_") || action == "CLEAR_SIMULATION"))
     {
@@ -271,6 +321,12 @@ bool applyCommand(const String &payload, String &commandId, String &action)
         digitalWrite(STATUS_LED_PIN, HIGH);
     else if (action == "LED_OFF")
         digitalWrite(STATUS_LED_PIN, LOW);
+    else if (action == "LED_IDENTIFY")
+    {
+        identifyStartedAt = now;
+        identifying = true;
+        digitalWrite(STATUS_LED_PIN, LOW);
+    }
     else if (action == "SET_PROFILE")
     {
         JsonObjectConst profile = document["profile"].as<JsonObjectConst>();
@@ -280,6 +336,8 @@ bool applyCommand(const String &payload, String &commandId, String &action)
             String(profile["revision"] | ""));
         unlockSystemState();
         Serial.printf("[PROFILE] On-chip save %s.\n", saved ? "confirmed" : "failed");
+        lastHandledCommandId = commandId;
+        lastHandledCommandApplied = saved;
         return saved;
     }
     else
@@ -290,6 +348,8 @@ bool applyCommand(const String &payload, String &commandId, String &action)
     }
     unlockSystemState();
 
+    lastHandledCommandId = commandId;
+    lastHandledCommandApplied = true;
     Serial.printf("[COMMAND] Applied %s (%s)\n", action.c_str(), commandId.c_str());
     return true;
 }
@@ -299,16 +359,6 @@ void acknowledgeCommand(const String &commandId, const String &action, bool appl
     if (commandId.isEmpty())
         return;
 
-    DeviceHttpRequest request;
-    HTTPClient &http = request.http;
-    http.setTimeout(HTTP_TIMEOUT);
-
-    if (!request.begin("/api/device/commands/ack"))
-        return;
-
-    addAuthorization(http);
-    http.addHeader("Content-Type", "application/json");
-
     JsonDocument document;
     document["commandId"] = commandId;
     document["deviceId"] = DEVICE_ID;
@@ -317,6 +367,23 @@ void acknowledgeCommand(const String &commandId, const String &action, bool appl
 
     String body;
     serializeJson(document, body);
+    if (socketConnected)
+    {
+        JsonDocument envelope;
+        envelope["type"] = "command-ack";
+        envelope["payload"].set(document);
+        String frame;
+        serializeJson(envelope, frame);
+        if (deviceSocket.sendTXT(frame)) return;
+        socketConnected = false;
+    }
+
+    DeviceHttpRequest request;
+    HTTPClient &http = request.http;
+    http.setTimeout(HTTP_TIMEOUT);
+    if (!request.begin("/api/device/commands/ack")) return;
+    addAuthorization(http);
+    http.addHeader("Content-Type", "application/json");
     const int status = http.POST(body);
     if (status < 200 || status >= 300)
         Serial.printf("[HTTP] Command acknowledgement failed: %d\n", status);
@@ -365,18 +432,25 @@ void begin()
     WiFi.setAutoReconnect(false);
     lastWifiAttemptAt = millis() - WIFI_RETRY_INTERVAL;
     lastTelemetryAt = millis() - TELEMETRY_INTERVAL;
+    lastSocketAttemptAt = millis() - (secureServer() ? CLOUD_WEBSOCKET_RECONNECT_INTERVAL
+                                                    : WEBSOCKET_RECONNECT_INTERVAL);
     wifiAttempts = 0;
 }
 
 void update(unsigned long now)
 {
     provisioning::update(now);
+    updateIdentifyLed(now);
     if (WiFi.status() != WL_CONNECTED)
     {
         setConnectionLed(false);
         if (wifiAnnounced)
         {
             wifiAnnounced = false;
+            socketConnected = false;
+            socketHandshakePending = false;
+            deviceSocket.disconnect();
+            socketInitialized = false;
             Serial.println("[WIFI] Connection lost; local control continues.");
         }
         connectWifi(now);
@@ -392,15 +466,28 @@ void update(unsigned long now)
     }
 
     if (!secureTransportReady()) return;
-    // The hosted endpoint uses bounded HTTPS requests. The current ESP32
-    // WebSocket client can stall here during its cloud TLS handshake, which
-    // also delays telemetry and command polling in this network task.
-    if (!secureServer())
+    connectSocket(now);
+    if (socketInitialized)
     {
-        connectSocket(now);
+        const unsigned long socketLoopStartedAt = millis();
         deviceSocket.loop();
+        const unsigned long socketLoopDuration = millis() - socketLoopStartedAt;
+        if (socketLoopDuration > 1000)
+            Serial.printf("[WS] Connection attempt took %lu ms; connected=%s.\n",
+                          socketLoopDuration, socketConnected ? "yes" : "no");
     }
-
+    // Let the header reply arrive before starting another blocking HTTPS
+    // request. WebSocketsClient otherwise times out before it reads the reply.
+    if (socketHandshakePending && !elapsedSince(millis(), lastSocketAttemptAt,
+                                                WEBSOCKET_HANDSHAKE_GRACE_INTERVAL))
+        return;
+    if (socketHandshakePending)
+    {
+        deviceSocket.disconnect();
+        socketHandshakePending = false;
+        socketInitialized = false;
+        Serial.println("[WS] Handshake timed out; using HTTPS fallback.");
+    }
     String eventNow;
     lockSystemState();
     eventNow = systemState.lastEvent;
@@ -421,8 +508,7 @@ void update(unsigned long now)
         if (sendTelemetry()) lastSentEvent = eventNow;
     }
 
-    const unsigned long pollInterval = secureServer() ? 10000 : COMMAND_POLL_INTERVAL;
-    if (elapsedSince(now, lastCommandPollAt, pollInterval))
+    if (!socketConnected && elapsedSince(now, lastCommandPollAt, COMMAND_POLL_INTERVAL))
     {
         lastCommandPollAt = now;
         pollCommand();

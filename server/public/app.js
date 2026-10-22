@@ -20,6 +20,7 @@ const state = {
   selected: "controller",
   events: [],
   pendingCommands: new Map(),
+  recentCommandStatuses: new Map(),
   initialized: false,
   requestBusy: false,
 };
@@ -222,7 +223,7 @@ function render() {
     "footer-source",
     state.source === "thingspeak"
       ? "Recorded cloud observation"
-      : "Local field observations",
+      : "Live field-unit observations",
   );
   const name = state.farm?.name;
   text("sidebar-farm", name || "Your greenhouse");
@@ -759,16 +760,27 @@ async function sendCommand(action) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ deviceId: state.latest.deviceId, action }),
     });
-    state.pendingCommands.set(data.commandId, { action, at: Date.now() });
-    text(
-      "command-status",
-      "Queued. Waiting for the field unit to acknowledge.",
-    );
-    log("Status LED command queued; not yet applied.");
+    const earlyStatus = state.recentCommandStatuses.get(data.commandId);
+    if (earlyStatus) {
+      state.recentCommandStatuses.delete(data.commandId);
+      showCommandStatus(earlyStatus);
+    } else {
+      state.pendingCommands.set(data.commandId, { action, at: Date.now() });
+      text("command-status", "Queued. Waiting for the field unit to acknowledge.");
+      log("Identify LED request queued; not yet applied.");
+    }
     render();
   } catch (e) {
     toast(e.message);
   }
+}
+function showCommandStatus(status) {
+  const label = status.applied
+    ? "Field unit accepted the blink request. Check the external LED on GPIO22."
+    : status.error || "Field unit rejected the command.";
+  text("command-status", label);
+  log(label, status.acknowledgedAt);
+  render();
 }
 document
   .querySelectorAll("[data-action]")
@@ -796,12 +808,12 @@ function connect() {
     if (message.event === "command-status") {
       const p = message.payload;
       if (state.pendingCommands.delete(p.commandId)) {
-        const label = p.applied
-          ? "Field unit confirmed the LED command."
-          : "Field unit rejected the command.";
-        text("command-status", label);
-        log(label, p.acknowledgedAt);
-        render();
+        showCommandStatus(p);
+      } else if (p.action === "LED_IDENTIFY") {
+        // The acknowledgement can reach this socket before the POST returns.
+        state.recentCommandStatuses.set(p.commandId, p);
+        if (state.recentCommandStatuses.size > 20)
+          state.recentCommandStatuses.delete(state.recentCommandStatuses.keys().next().value);
       }
       if (p.action === "SET_PROFILE") void refresh();
     }
@@ -865,11 +877,11 @@ setInterval(() => {
   if (document.hidden) return;
   render();
   for (const [id, p] of state.pendingCommands)
-    if (Date.now() - p.at > 30000) {
+    if (Date.now() - p.at > 70000) {
       state.pendingCommands.delete(id);
       text(
         "command-status",
-        "No acknowledgement received within 30 seconds. Application is unconfirmed; retry when connected.",
+        "No acknowledgement received. Check the field unit connection before retrying.",
       );
       render();
     }

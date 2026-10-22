@@ -21,6 +21,7 @@ export function toThingSpeakEntries(telemetry) {
   const outputs = telemetry.outputs || {};
   const probe = readings.probe || {};
   const raw = probe.raw || {};
+  const soilValid = readings.soilSensorEnabled === true && readings.soilValid === true;
   const faults = {
     deviceId: telemetry.deviceId,
     event: outputs.lastEvent || null,
@@ -33,7 +34,8 @@ export function toThingSpeakEntries(telemetry) {
       ...fields([
         numeric(raw.ph), numeric(raw.ec), numeric(raw.nitrogen),
         numeric(raw.phosphorus), numeric(raw.potassium),
-        numeric(readings.soilRaw), numeric(probe.validCount), flag(readings.soilDry),
+        soilValid ? numeric(readings.soilRaw) : null,
+        numeric(probe.validCount), soilValid ? flag(readings.soilDry) : null,
       ]),
       status: JSON.stringify({ deviceId: telemetry.deviceId, rawRegisterValues: true }),
     },

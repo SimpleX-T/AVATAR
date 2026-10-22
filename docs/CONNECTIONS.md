@@ -110,7 +110,7 @@ ESP32 readings (current local schema)
        │
        ▼
 ESP32 firmware
-       │ HTTP POST or WebSocket stream
+       │ secure WebSocket stream, HTTPS fallback
        ▼
 Node server :8787
        ├── data/latest.json
@@ -124,18 +124,20 @@ Node server :8787
                        ▼
                   Web dashboard
 
-Dashboard simulation command
+Dashboard identify command
        │
        ▼
 Node command queue
-       │ ESP32 polls every 2 seconds
+       │ WebSocket push, HTTPS polling fallback
        ▼
-ESP32 applies simulation command
+ESP32 blinks external status LED and acknowledges
 ```
 
-The regular telemetry interval is 60 seconds; event changes trigger an earlier
+The regular telemetry interval is five seconds; event changes trigger an earlier
 report to the server. Fire detection and pump time limits run locally at their
-own faster cadence. ThingSpeak publishing and private readback are available
+own faster cadence. ThingSpeak archives at most one sample per minute. The
+capacitive soil sensor is disconnected, so its reading is unavailable and
+automatic irrigation is disabled. ThingSpeak publishing and private readback are available
 after [channel setup](thingspeak-setup.md). Durable offline buffering remains
 unimplemented.
 

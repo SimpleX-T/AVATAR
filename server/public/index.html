@@ -524,14 +524,12 @@ Setup is a resumable evidence-led flow, not a form on the monitoring screen. -->
               </div>
             </dl>
             <p class="quiet">
-              Use the status LED to identify your unit. Pump and servo actions
-              stay under the local safety controller.
+              Identify your field unit by blinking the external LED wired to
+              GPIO22. Pump and servo actions stay under the local safety controller.
             </p>
             <div class="form-actions">
-              <button class="button secondary" data-action="LED_ON" disabled>
-                Turn status LED on</button
-              ><button class="button secondary" data-action="LED_OFF" disabled>
-                Turn status LED off
+              <button class="button secondary" data-action="LED_IDENTIFY" disabled>
+                Blink field unit LED
               </button>
             </div>
             <p id="command-status" role="status" class="quiet"></p>

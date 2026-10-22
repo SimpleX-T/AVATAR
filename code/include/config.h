@@ -13,15 +13,19 @@ constexpr bool SIMULATION_MODE = false;
 constexpr bool ENABLE_PUMP_OUTPUTS = true;
 constexpr bool ENABLE_SERVO_OUTPUT = true;
 constexpr bool ENABLE_FIRE_SENSOR_INPUT = true;
-constexpr bool ENABLE_SOIL_MOISTURE_INPUT = true;
+// The capacitive probe is not connected in the current build. A floating GPIO35
+// can look like a valid ADC value, so leave irrigation disabled until wired.
+constexpr bool ENABLE_SOIL_MOISTURE_INPUT = false;
 constexpr bool ENABLE_MQ6_INPUT = true; // Both AO and DO must be divided to <=3.3 V.
 constexpr bool ENABLE_RS485_PROBE = true; // MAX485 RO must be level shifted.
 
 // Network
 constexpr unsigned long WIFI_RETRY_INTERVAL = 30000;
-constexpr unsigned long TELEMETRY_INTERVAL = 60000;
-constexpr unsigned long COMMAND_POLL_INTERVAL = 2000;
+constexpr unsigned long TELEMETRY_INTERVAL = 5000;
+constexpr unsigned long COMMAND_POLL_INTERVAL = 3000;
 constexpr unsigned long WEBSOCKET_RECONNECT_INTERVAL = 3000;
+constexpr unsigned long CLOUD_WEBSOCKET_RECONNECT_INTERVAL = 30000;
+constexpr unsigned long WEBSOCKET_HANDSHAKE_GRACE_INTERVAL = 12000;
 constexpr unsigned long HTTP_TIMEOUT = 3000;
 
 // Sensor sampling

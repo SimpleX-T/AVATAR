@@ -34,7 +34,8 @@ bring-up test; no hardware is inferred from old source constants.
 - Attach device ID, sensor ID/location, observation timestamp, firmware version,
   validity/calibration status, and operating mode to readings.
 - Sample each sensor on its own appropriate cadence; aggregate into a slower
-  upload batch. The local telemetry interval is now 60 seconds.
+  upload batch. Live server telemetry is now about five seconds; the
+  ThingSpeak research archive remains at most once per minute.
 - Define a bounded persistent offline queue, retry backoff, duplicate handling,
   and behavior when storage fills. Local sensing and safety control must not
   block while uploads retry.

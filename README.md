@@ -117,7 +117,7 @@ constexpr bool SIMULATION_MODE = false;
 constexpr bool ENABLE_PUMP_OUTPUTS = true;
 constexpr bool ENABLE_SERVO_OUTPUT = true;
 constexpr bool ENABLE_FIRE_SENSOR_INPUT = true;
-constexpr bool ENABLE_SOIL_MOISTURE_INPUT = true;
+constexpr bool ENABLE_SOIL_MOISTURE_INPUT = false; // Probe is currently disconnected.
 ```
 
 The pump and servo flags are separate; keep their physical safety bounds and
@@ -125,13 +125,15 @@ verify actual output before relying on them.
 
 ## Current prototype status
 
-- The firmware targets an ESP32 DevKit. Its telemetry uses one fire sensor,
-  one capacitive soil sensor, DHT11, MQ-6 and raw pH/EC/N/P/K registers.
-- The currently flashed firmware sends telemetry to the Node server over the
-  LAN HTTP/WebSocket path. The hosted build uses verified HTTPS telemetry and
-  command polling. When configured, the server writes two private ThingSpeak channels and
-  the dashboard reads their recorded feeds through a protected server route.
-- The local telemetry interval is 60 seconds. Networking runs in a separate
+- The firmware targets an ESP32 DevKit. Its telemetry uses a fire sensor,
+  DHT11, MQ-6 and raw pH/EC/N/P/K registers. The capacitive soil sensor is
+  disconnected in this build: its reading is unavailable and automatic
+  irrigation is disabled until the probe is wired and validated.
+- The ESP32 reports to the hosted Node server every five seconds over a secure
+  WebSocket when available, with verified HTTPS telemetry and command polling
+  as fallback. The dashboard receives fresh server observations over its own
+  WebSocket. The server archives a slower sample to two private ThingSpeak channels.
+- Networking runs in a separate
   ESP32 task, so a slow HTTP request does not pause the faster local fire and
   pump control loop.
 - The pin map in `code/include/pins.h` follows the bench inputs. The
@@ -145,7 +147,7 @@ verify actual output before relying on them.
 - `src/drivers/`: direct hardware actions. Drivers do not make farm decisions.
 - `src/modules/`: climate/MQ-6, RS-485 soil probe, irrigation, and fire rules.
 - `src/utils/`: rollover-safe timing and readable serial status output.
-- `src/network/`: Wi-Fi, HTTP telemetry, and remote-command polling.
+- `src/network/`: Wi-Fi, secure WebSocket telemetry/commands, and HTTPS fallback.
 - `src/main.cpp`: initializes everything and gives every module a short turn.
 
 The separation lets sensor drivers, farm rules, communications, and the

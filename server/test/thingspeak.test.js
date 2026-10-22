@@ -9,7 +9,8 @@ import {
 const sample = {
   deviceId: "head-001",
   readings: {
-    soilRaw: 3210, soilDry: true, temperatureC: 29.5,
+    soilRaw: 3210, soilDry: true, soilValid: true, soilSensorEnabled: true,
+    temperatureC: 29.5,
     humidityPercent: 81, mq6Raw: 154, mq6Digital: 1,
     fireDetected: false,
     probe: { raw: { ph: 64, ec: 11, nitrogen: 0, phosphorus: 0, potassium: 1 }, validCount: 5 },
@@ -29,6 +30,15 @@ test("maps only measured/raw values into the two eight-field channels", () => {
   assert.equal(entries.environment.field6, 1);
   assert.equal(Object.keys(entries.soil).length, 9); // 8 fields + status.
   assert.equal(toThingSpeakEntries({ ...sample, readings: { ...sample.readings, temperatureC: null } }).environment.field1, undefined);
+});
+
+test("does not archive a floating disconnected soil input as a measurement", () => {
+  const entries = toThingSpeakEntries({
+    ...sample,
+    readings: { ...sample.readings, soilSensorEnabled: false, soilValid: false, soilRaw: 1964 },
+  });
+  assert.equal(entries.soil.field6, undefined);
+  assert.equal(entries.soil.field8, undefined);
 });
 
 test("round-trips channel data without inventing calibrated NPK units", () => {

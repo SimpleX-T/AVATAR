@@ -243,12 +243,24 @@ async function acceptTelemetry(request, response) {
   }
 }
 
-function nextDeviceCommand(request, response, url) {
-  if (!isDeviceAuthorized(request)) {
-    return json(response, 401, { error: "Invalid device token" });
+function takeDeviceCommand(deviceId) {
+  if (!deviceId) return null;
+  const now = Date.now();
+  const inFlight = [...state.inFlightCommands.values()].find(
+    (item) => item.deviceId === deviceId,
+  );
+  if (inFlight) {
+    if (now - Date.parse(inFlight.lastSentAt || inFlight.createdAt) < 10_000)
+      return null;
+    if (inFlight.action !== "SET_PROFILE" && now - Date.parse(inFlight.createdAt) > 60_000) {
+      state.inFlightCommands.delete(inFlight.commandId);
+      publish("command-status", { ...inFlight, applied: false, error: "Device did not acknowledge in time" });
+    } else {
+      inFlight.lastSentAt = new Date(now).toISOString();
+      return inFlight;
+    }
   }
 
-  const deviceId = url.searchParams.get("deviceId");
   const queue = state.commands.get(deviceId) || [];
   let command = queue.shift();
   state.commands.set(deviceId, queue);
@@ -258,51 +270,55 @@ function nextDeviceCommand(request, response, url) {
     state.farm?.deviceId === deviceId &&
     !state.farm.deviceSyncedAt
   ) {
-    const inFlight = [...state.inFlightCommands.values()].find(
-      (item) =>
-        item.action === "SET_PROFILE" &&
-        item.profileRevision === state.farm.revision,
-    );
-    if (inFlight && Date.now() - Date.parse(inFlight.createdAt) > 30_000)
-      state.inFlightCommands.delete(inFlight.commandId);
-    if (!inFlight || Date.now() - Date.parse(inFlight.createdAt) > 30_000)
-      command = {
-        commandId: crypto.randomUUID(),
-        deviceId,
-        action: "SET_PROFILE",
-        profileRevision: state.farm.revision,
-        profile: {
-          name: state.farm.name,
-          farmerName: state.farm.farmerName,
-          crop: state.farm.crop,
-          setupAt: state.farm.setupAt,
-          revision: state.farm.revision,
-        },
-        createdAt: new Date().toISOString(),
-      };
+    command = {
+      commandId: crypto.randomUUID(),
+      deviceId,
+      action: "SET_PROFILE",
+      profileRevision: state.farm.revision,
+      profile: {
+        name: state.farm.name,
+        farmerName: state.farm.farmerName,
+        crop: state.farm.crop,
+        setupAt: state.farm.setupAt,
+        revision: state.farm.revision,
+      },
+      createdAt: new Date().toISOString(),
+    };
   }
+
+  if (command) {
+    command.lastSentAt = new Date(now).toISOString();
+    state.inFlightCommands.set(command.commandId, command);
+  }
+  return command || null;
+}
+
+function sendPendingToDevice(deviceId) {
+  const socket = state.deviceSockets.get(deviceId);
+  if (socket?.readyState !== WebSocket.OPEN) return;
+  const command = takeDeviceCommand(deviceId);
+  if (command) socket.send(JSON.stringify({ type: "command", payload: command }));
+}
+
+function nextDeviceCommand(request, response, url) {
+  if (!isDeviceAuthorized(request)) {
+    return json(response, 401, { error: "Invalid device token" });
+  }
+
+  const command = takeDeviceCommand(url.searchParams.get("deviceId"));
 
   if (!command) {
     response.writeHead(204);
     return response.end();
   }
 
-  state.inFlightCommands.set(command.commandId, command);
   return json(response, 200, command);
 }
 
-async function acknowledgeDeviceCommand(request, response) {
-  if (!isDeviceAuthorized(request)) {
-    return json(response, 401, { error: "Invalid device token" });
-  }
-
-  try {
-    const payload = await readJsonBody(request);
+async function recordCommandAcknowledgement(payload) {
     const command = state.inFlightCommands.get(payload.commandId);
     if (!command || command.deviceId !== payload.deviceId) {
-      return json(response, 404, {
-        error: "Command was not awaiting acknowledgement",
-      });
+      throw new Error("Command was not awaiting acknowledgement");
     }
 
     const acknowledgement = {
@@ -327,9 +343,19 @@ async function acknowledgeDeviceCommand(request, response) {
       publish("farm-updated", { report: reportEligibility(state.farm) });
     }
     publish("command-status", acknowledgement);
-    return json(response, 202, acknowledgement);
+    sendPendingToDevice(command.deviceId);
+    return acknowledgement;
+}
+
+async function acknowledgeDeviceCommand(request, response) {
+  if (!isDeviceAuthorized(request)) {
+    return json(response, 401, { error: "Invalid device token" });
+  }
+
+  try {
+    return json(response, 202, await recordCommandAcknowledgement(await readJsonBody(request)));
   } catch (error) {
-    return json(response, 400, { error: error.message });
+    return json(response, error.message === "Command was not awaiting acknowledgement" ? 404 : 400, { error: error.message });
   }
 }
 
@@ -341,6 +367,7 @@ async function enqueueCommand(request, response) {
       "CLEAR_SIMULATION",
       "LED_ON",
       "LED_OFF",
+      "LED_IDENTIFY",
     ]);
 
     if (!payload.deviceId || !allowedActions.has(payload.action)) {
@@ -357,10 +384,7 @@ async function enqueueCommand(request, response) {
     const queue = state.commands.get(payload.deviceId) || [];
     queue.push(command);
     state.commands.set(payload.deviceId, queue.slice(-20));
-    const deviceSocket = state.deviceSockets.get(payload.deviceId);
-    if (deviceSocket?.readyState === WebSocket.OPEN) {
-      deviceSocket.send(JSON.stringify({ type: "command", payload: command }));
-    }
+    sendPendingToDevice(payload.deviceId);
     publish("command", command);
     return json(response, 202, command);
   } catch (error) {
@@ -523,6 +547,7 @@ async function saveFarm(payload) {
     for (const [id, command] of state.inFlightCommands)
       if (command.action === "SET_PROFILE") state.inFlightCommands.delete(id);
   }
+  sendPendingToDevice(deviceId);
   return farm;
 }
 
@@ -723,6 +748,8 @@ const dashboardSocketServer = new WebSocketServer({ noServer: true });
 
 deviceSocketServer.on("connection", (socket) => {
   let deviceId = null;
+  socket.isAlive = true;
+  socket.on("pong", () => { socket.isAlive = true; });
   socket.on("error", (error) => {
     console.warn(
       "[WS] Device socket closed with protocol error:",
@@ -732,18 +759,20 @@ deviceSocketServer.on("connection", (socket) => {
   socket.on("message", async (raw) => {
     try {
       const message = JSON.parse(raw.toString());
-      if (message.type !== "telemetry") return;
-      const telemetry = await recordTelemetry(message.payload);
-      deviceId = telemetry.deviceId;
-      state.deviceSockets.set(deviceId, socket);
-      socket.send(
-        JSON.stringify({
-          type: "telemetry-accepted",
-          receivedAt: telemetry.receivedAt,
-        }),
-      );
+      if (message.type === "telemetry") {
+        const telemetry = await recordTelemetry(message.payload);
+        deviceId = telemetry.deviceId;
+        state.deviceSockets.set(deviceId, socket);
+        socket.send(JSON.stringify({ type: "telemetry-accepted", receivedAt: telemetry.receivedAt }));
+        sendPendingToDevice(deviceId);
+      } else if (message.type === "command-ack") {
+        if (!deviceId || message.payload?.deviceId !== deviceId)
+          throw new Error("Device identity does not match this connection");
+        await recordCommandAcknowledgement(message.payload);
+      }
     } catch (error) {
-      socket.send(JSON.stringify({ type: "error", error: error.message }));
+      if (socket.readyState === WebSocket.OPEN)
+        socket.send(JSON.stringify({ type: "error", error: error.message }));
     }
   });
   socket.on("close", () => {
@@ -751,6 +780,13 @@ deviceSocketServer.on("connection", (socket) => {
       state.deviceSockets.delete(deviceId);
   });
 });
+
+setInterval(() => {
+  for (const socket of deviceSocketServer.clients) {
+    if (!socket.isAlive) socket.terminate();
+    else { socket.isAlive = false; socket.ping(); }
+  }
+}, 30_000).unref();
 
 dashboardSocketServer.on("connection", (socket) => {
   state.dashboardSockets.add(socket);
