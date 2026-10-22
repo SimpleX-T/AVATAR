@@ -7,17 +7,23 @@
 // possible without changing the control flow.
 constexpr unsigned long SERIAL_BAUD = 115200;
 
-// Current deployment: ESP32 powered by USB, no greenhouse board attached.
-// Enable inputs/outputs individually only after reconnecting and checking wiring.
+// Full standalone greenhouse bench build: physical wiring and external
+// supplies confirmed by the operator. Automatic bounded responses stay active;
+// manual pump tests coexist and yield to automatic responses and lockouts.
 constexpr bool SIMULATION_MODE = false;
-constexpr bool USB_ONLY_TEST = true;
-constexpr bool ENABLE_PUMP_OUTPUTS = false;
-constexpr bool ENABLE_SERVO_OUTPUT = false;
-constexpr bool ENABLE_DHT11_INPUT = false;
-constexpr bool ENABLE_FIRE_SENSOR_INPUT = false;
-constexpr bool ENABLE_SOIL_MOISTURE_INPUT = false;
-constexpr bool ENABLE_MQ6_INPUT = false; // Both AO and DO must be divided to <=3.3 V.
-constexpr bool ENABLE_RS485_PROBE = false; // MAX485 RO must be level shifted.
+constexpr char HARDWARE_PROFILE[] = "standalone";
+constexpr bool ENABLE_MANUAL_PUMP_TESTS = true;
+constexpr bool ENABLE_PUMP_OUTPUTS = true;
+constexpr bool ENABLE_SERVO_OUTPUT = true;
+constexpr bool ENABLE_DHT11_INPUT = true;
+constexpr bool ENABLE_FIRE_SENSOR_INPUT = true;
+// Going live on the battery-powered standalone circuit: the capacitive probe
+// is wired, so automatic irrigation is armed with its bounded bursts.
+constexpr bool ENABLE_SOIL_MOISTURE_INPUT = true;
+constexpr bool ENABLE_MQ6_INPUT = true; // Both AO and DO must be divided to <=3.3 V.
+constexpr bool ENABLE_RS485_PROBE = true; // MAX485 RO must be level shifted.
+static_assert(!ENABLE_MANUAL_PUMP_TESTS || !SIMULATION_MODE,
+              "Manual pump tests are a hardware feature; disable them in simulation");
 
 // Network
 constexpr unsigned long WIFI_RETRY_INTERVAL = 30000;

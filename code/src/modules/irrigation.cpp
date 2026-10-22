@@ -111,6 +111,9 @@ void update(unsigned long now) {
         systemState.irrigationSafetyLockout,
     };
     if (!mayStartIrrigation(decision)) return;
+    // A manual pump test holds one output channel; never run both pumps at
+    // once. Wait for the manual test to finish before automatic irrigation.
+    if (systemState.manualPump != ManualPump::None) return;
     if (!pump::irrigationOn()) {
         systemState.irrigationSafetyLockout = true;
         systemState.lastEvent = "WATER_OUTPUT_UNAVAILABLE";

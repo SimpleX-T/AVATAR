@@ -3,6 +3,7 @@
 #include "config.h"
 #include "fire.h"
 #include "irrigation.h"
+#include "manual_pump_test.h"
 #include "pins.h"
 #include "pump.h"
 #include "servo.h"
@@ -97,6 +98,8 @@ void update(unsigned long now) {
         systemState.fireResting ? now - restStartedAt : 0);
     if (systemState.fireSafetyLockout || retry != FireRetry::Start) return;
     irrigation::preemptByFire(now);
+    // Fire priority outranks a manual pump test; release the outputs first.
+    manualPumpTest::stop(now);
     if (!pump::fireOn()) {
         systemState.fireSafetyLockout = true;
         systemState.lastEvent = "FIRE_OUTPUT_UNAVAILABLE";

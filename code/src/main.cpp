@@ -6,6 +6,7 @@
 #include "fire.h"
 #include "helpers.h"
 #include "irrigation.h"
+#include "manual_pump_test.h"
 #include "pump.h"
 #include "provisioning.h"
 #include "servo.h"
@@ -29,12 +30,11 @@ void networkTask(void *)
 
 void printCommandHelp()
 {
-    Serial.println("Commands: s=status, x=stop and lock pumps, r=reset safety locks, p=open protected setup Wi-Fi");
+    Serial.println("Commands: f=fire pump 3s, i=hydration pump 3s, t=stop test, x=stop and lock, r=reset locks, s=status, p=setup Wi-Fi");
 }
 
 void handleSerial(unsigned long now)
 {
-    (void)now;
     while (Serial.available() > 0)
     {
         const char command = static_cast<char>(Serial.read());
@@ -56,11 +56,32 @@ void handleSerial(unsigned long now)
             }
             else
             {
+                manualPumpTest::stop(now);
                 irrigation::emergencyStop();
                 fireControl::emergencyStop();
                 Serial.println("[CONTROL] Pump outputs stopped and locked.");
             }
             unlockSystemState();
+            break;
+        case 'f':
+        case 'F':
+        case 'i':
+        case 'I':
+            lockSystemState();
+            Serial.printf("[PUMP TEST] %s request %s.\n",
+                          command == 'f' || command == 'F' ? "fire" : "hydration",
+                          manualPumpTest::start(
+                              command == 'f' || command == 'F'
+                                  ? ManualPump::Fire : ManualPump::Hydration,
+                              now) ? "accepted" : "rejected");
+            unlockSystemState();
+            break;
+        case 't':
+        case 'T':
+            lockSystemState();
+            manualPumpTest::stop(now);
+            unlockSystemState();
+            Serial.println("[PUMP TEST] Stopped.");
             break;
         case 'r':
         case 'R':
@@ -141,6 +162,7 @@ void loop()
         systemState.controllerReady =
             now >= 10000 && systemState.sensors.fireSensorReady;
         irrigation::update(now);
+        manualPumpTest::update(now);
     }
     unlockSystemState();
     handleSerial(now);

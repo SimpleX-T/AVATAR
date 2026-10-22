@@ -533,6 +533,25 @@ Setup is a resumable evidence-led flow, not a form on the monitoring screen. -->
               </button>
             </div>
             <p id="command-status" role="status" class="quiet"></p>
+            <div class="manual-controls">
+              <h3>Manual pump triggers</h3>
+              <p class="quiet">
+                Each trigger runs one pump for at most three seconds. Only one
+                pump runs at a time; a ten-second cooldown follows each stop.
+                Automatic fire and irrigation responses always take priority.
+              </p>
+              <div class="form-actions">
+                <button class="button secondary" data-action="TEST_FIRE_PUMP" disabled>
+                  Run fire pump (3 s)
+                </button>
+                <button class="button secondary" data-action="TEST_HYDRATION_PUMP" disabled>
+                  Run hydration pump (3 s)
+                </button>
+                <button class="button secondary" data-action="STOP_PUMP_TEST" disabled>
+                  Stop pump test
+                </button>
+              </div>
+            </div>
           </section>
         </section>
         <section data-view="activity" class="view" hidden>

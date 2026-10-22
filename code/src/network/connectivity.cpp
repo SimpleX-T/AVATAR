@@ -8,6 +8,7 @@
 
 #include "config.h"
 #include "connectivity.h"
+#include "manual_pump_test.h"
 #include "pins.h"
 #include "provisioning.h"
 #include "secrets.h"
@@ -215,7 +216,7 @@ bool sendTelemetry()
     JsonDocument document;
     document["deviceId"] = DEVICE_ID;
     document["mode"] = SIMULATION_MODE ? "simulation" : "hardware";
-    document["hardwareProfile"] = USB_ONLY_TEST ? "usb-only" : "wired";
+    document["hardwareProfile"] = HARDWARE_PROFILE;
     document["uptimeMs"] = millis();
     document["wifiRssi"] = WiFi.RSSI();
 
@@ -261,6 +262,15 @@ bool sendTelemetry()
     outputs["fireLockout"] = snapshot.fireSafetyLockout;
     outputs["waterFault"] = snapshot.irrigationSafetyLockout;
     outputs["controllerReady"] = snapshot.controllerReady;
+    outputs["manualPumpTest"] = snapshot.manualPump == ManualPump::Fire
+        ? "fire" : snapshot.manualPump == ManualPump::Hydration
+            ? "hydration" : "none";
+    const unsigned long reportedAt = millis();
+    outputs["manualPumpRemainingMs"] = manualPumpRunRemaining(
+        snapshot.manualPump, reportedAt, snapshot.manualPumpStartedAt);
+    outputs["manualPumpCooldownMs"] = manualPumpCooldownRemaining(
+        snapshot.manualPumpHasStopped, reportedAt,
+        snapshot.manualPumpLastStoppedAt);
     outputs["fireBursts"] = snapshot.fireBursts;
     outputs["waterBursts"] = snapshot.irrigationBursts;
     outputs["fireResting"] = snapshot.fireResting;
@@ -322,6 +332,22 @@ bool applyCommand(const String &payload, String &commandId, String &action)
         lastHandledCommandApplied = true;
         Serial.printf("[COMMAND] Received cloud link test (%s)\n", commandId.c_str());
         return true;
+    }
+
+    if (action == "TEST_FIRE_PUMP" || action == "TEST_HYDRATION_PUMP" ||
+        action == "STOP_PUMP_TEST")
+    {
+        lockSystemState();
+        const bool applied = action == "STOP_PUMP_TEST" ?
+            (manualPumpTest::stop(now), true) : manualPumpTest::start(
+                action == "TEST_FIRE_PUMP" ? ManualPump::Fire
+                                           : ManualPump::Hydration, now);
+        unlockSystemState();
+        lastHandledCommandId = commandId;
+        lastHandledCommandApplied = applied;
+        Serial.printf("[PUMP TEST] %s %s (%s)\n", action.c_str(),
+                      applied ? "accepted" : "rejected", commandId.c_str());
+        return applied;
     }
 
     lockSystemState();
