@@ -5,7 +5,7 @@ services:
     region: frankfurt
     plan: 0.5c-512mb
     rootDir: server
-    buildCommand: npm ci --include=dev && npm --prefix client ci --include=dev && npm run build:auth
+    buildCommand: npm ci --include=dev && npm --prefix client ci --include=dev && npm --prefix dashboard-ui ci --include=dev && npm run build:auth
     startCommand: npm start
     healthCheckPath: /api/health
     autoDeployTrigger: commit

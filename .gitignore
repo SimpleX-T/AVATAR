@@ -13,3 +13,7 @@ server/client/node_modules
 
 # Rebuilt from server/client with npm run build:auth
 /server/public/auth/
+
+# React dashboard build (rebuilt by npm --prefix dashboard-ui run build)
+/server/public/dashboard/
+server/dashboard-ui/node_modules

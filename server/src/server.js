@@ -465,14 +465,18 @@ function openEventStream(request, response) {
 async function serveStatic(response, pathname) {
   const requested =
     pathname === "/"
-      ? "/index.html"
-      : pathname === "/auth/"
-        ? "/auth/index.html"
-        : pathname === "/slide/"
-          ? "/slide/index.html"
-          : pathname === "/report/"
-            ? "/report/index.html"
-            : pathname;
+      ? "/dashboard/index.html"
+      : pathname === "/dashboard/"
+        ? "/dashboard/index.html"
+        : pathname === "/legacy"
+          ? "/index.html"
+          : pathname === "/auth/"
+            ? "/auth/index.html"
+            : pathname === "/slide/"
+              ? "/slide/index.html"
+              : pathname === "/report/"
+                ? "/report/index.html"
+                : pathname;
   const safePath = normalize(requested).replace(/^(\.\.[/\\])+/, "");
   const filePath = join(publicDirectory, safePath);
 
