@@ -1,39 +1,40 @@
 import { LiveState } from "../lib/useLive";
+import { QuietField } from "../components/illustrations";
 
 function view(live: LiveState) {
   const { farm, fs, report } = live;
   if (!farm)
     return {
-      state: "Setup needed",
+      state: "Not started yet",
       severity: "warning",
-      copy: "Name your greenhouse and verify the field unit to start the 12-hour recording window.",
+      copy: "Once your greenhouse has a name and the unit confirms it, the 12-hour record starts ticking.",
       canOpen: false,
     };
   if (!farm.deviceSyncedAt)
     return {
-      state: "Waiting for the field unit",
+      state: "One foot in the door",
       severity: "warning",
-      copy: "The field unit has not acknowledged your greenhouse profile yet. Keep it powered and connected.",
+      copy: "The unit hasn't confirmed your profile yet. Keep it powered and online and it'll click into place.",
       canOpen: false,
     };
   if (fs.usbOnly)
     return {
-      state: "Sensors not connected",
+      state: "Still on the bench",
       severity: "warning",
-      copy: "The field unit is on the bench build; a cloud report would verify the link, not the greenhouse.",
+      copy: "The unit is running its bench build right now, so a report would tell us about the cable, not the crops.",
       canOpen: false,
     };
   if (report && Object.keys(report).length > 0)
     return {
-      state: "Time window complete",
+      state: "Your record is ready",
       severity: "good",
-      copy: "Your 12-hour recording window is complete. Open the printable research report.",
+      copy: "Twelve hours have passed and the numbers are in. Open the printable version whenever you like.",
       canOpen: true,
     };
   return {
-    state: "Observing your greenhouse",
+    state: "Watching and writing",
     severity: "good",
-    copy: "The recording window is running. The report unlocks 12 hours after the field unit confirmed your profile.",
+    copy: "The record's clock is running. Come back when twelve hours have passed and it'll be waiting.",
     canOpen: false,
   };
 }
@@ -43,66 +44,71 @@ export default function Reports({ live }: { live: LiveState }) {
   const farm = live.farm;
 
   return (
-    <>
-      <p className="kicker">Reports</p>
-      <h1 className="headline">
-        A record you can <em>follow.</em>
-      </h1>
-      <p className="sub">
-        Twelve hours of observed field data, drawn only from recorded
-        observations. Missing values remain missing.
-      </p>
+    <div className="stagger">
+      <div className="topbar" style={{ padding: 0 }}>
+        <div className="greeting">
+          <h1>The twelve-hour record</h1>
+          <p>
+            Real observations only — if the sensors blinked, the record says
+            so instead of filling the blanks.
+          </p>
+        </div>
+      </div>
 
-      <section className="section">
-        <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
+      <section className="card" style={{ overflow: "hidden", padding: 0 }}>
+        <div
+          style={{
+            background: "linear-gradient(140deg, var(--deep-2), var(--deep) 80%)",
+            color: "#eaf6e4",
+            padding: "clamp(26px, 4vw, 44px)",
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
           <div
             style={{
-              padding: "clamp(28px, 4vw, 48px)",
-              background:
-                "linear-gradient(150deg, var(--mint-veil), transparent 60%)",
-              borderBottom: "1px solid var(--line)",
+              position: "absolute",
+              width: 220,
+              height: 220,
+              borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(168,224,99,.3), transparent 70%)",
+              top: -80,
+              right: -50,
             }}
-          >
-            <p className="kicker" style={{ marginBottom: 10 }}>
-              Field research report · 12-hour window
-            </p>
-            <div
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "clamp(30px, 4vw, 46px)",
-                fontWeight: 300,
-                lineHeight: 1.05,
-              }}
-            >
-              {farm?.name || "Your greenhouse"}
-            </div>
-            <p className="quiet" style={{ marginTop: 8 }}>
-              {farm?.farmerName ? `Operator ${farm.farmerName}` : "Field operator"}
-              {farm?.crop ? ` · crop: ${farm.crop}` : ""}
-            </p>
+          />
+          <p style={{ margin: "0 0 10px", fontSize: 11, fontWeight: 700, letterSpacing: ".2em", textTransform: "uppercase", color: "#a8e063" }}>
+            Field research report
+          </p>
+          <div style={{ fontSize: "clamp(26px, 3.4vw, 40px)", fontWeight: 800, letterSpacing: "-0.02em" }}>
+            {farm?.name || "Your greenhouse"}
           </div>
+          <p style={{ margin: "6px 0 0", opacity: 0.75, fontSize: 14 }}>
+            {farm?.farmerName ? `Kept by ${farm.farmerName}` : "Your field, on paper"}
+            {farm?.crop ? ` · growing ${farm.crop}` : ""}
+          </p>
+        </div>
 
-          <div style={{ padding: "clamp(24px, 3vw, 40px)" }}>
-            <span className={`badge ${v.severity}`}>{v.state}</span>
-            <p style={{ color: "var(--ink-2)", fontSize: 15, marginTop: 14 }}>
-              {v.copy}
-            </p>
-            <div className="cta-row" style={{ marginTop: 22 }}>
-              <button
-                className="cta cta-solid"
-                disabled={!v.canOpen}
-                onClick={() => window.open("/report/", "_blank")}
-              >
-                Open my report
-              </button>
-            </div>
-            <p className="disclaimer">
-              Charts contain actual recorded observations only. Missing values
-              are never filled in or estimated.
-            </p>
+        <div style={{ padding: "clamp(22px, 3vw, 36px)" }}>
+          <span className={`badge ${v.severity}`}>{v.state}</span>
+          <p style={{ color: "var(--ink-2)", marginTop: 14, fontSize: 15 }}>
+            {v.copy}
+          </p>
+          <div className="cta-row" style={{ marginTop: 20 }}>
+            <button
+              className="pill-btn solid"
+              disabled={!v.canOpen}
+              onClick={() => window.open("/report/", "_blank")}
+            >
+              Show me the record
+            </button>
+            {!v.canOpen && (
+              <span className="quiet" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <QuietField width={40} /> It'll be worth the wait.
+              </span>
+            )}
           </div>
         </div>
       </section>
-    </>
+    </div>
   );
 }

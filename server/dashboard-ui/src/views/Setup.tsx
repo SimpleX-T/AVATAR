@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { LiveState } from "../lib/useLive";
 import { api, FarmResponse } from "../lib/api";
+import { GreenhouseScene } from "../components/illustrations";
 
 const DRAFT_KEY = "avatar-greenhouse-draft-v2";
 
 export default function Setup({ live }: { live: LiveState }) {
-  const { fs, latest, farm, activation, refresh } = live;
+  const { fs, latest, farm, activation, refresh, loading } = live;
   const [step, setStep] = useState(farm ? 3 : 1);
   const [name, setName] = useState("");
   const [farmerName, setFarmerName] = useState("");
@@ -54,7 +55,7 @@ export default function Setup({ live }: { live: LiveState }) {
         }),
       );
     } catch {
-      /* private mode etc. */
+      /* private mode */
     }
   };
 
@@ -76,7 +77,7 @@ export default function Setup({ live }: { live: LiveState }) {
       localStorage.removeItem(DRAFT_KEY);
       await refresh();
       setStep(3);
-      live.setFeed("Greenhouse profile saved — waiting for device acknowledgement");
+      live.setFeed("Profile saved — now waiting on the unit to confirm");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -91,176 +92,202 @@ export default function Setup({ live }: { live: LiveState }) {
     </span>
   );
 
-  return (
-    <>
-      <p className="kicker">Setup</p>
-      <h1 className="headline">
-        Meet your <em>greenhouse.</em>
-      </h1>
-      <p className="sub">
-        Three short steps. Progress is saved as you go, and activation requires
-        fresh physical telemetry — never a simulated reading.
-      </p>
+  if (loading)
+    return (
+      <div className="empty" style={{ padding: "120px 20px" }}>
+        <span className="dots" style={{ justifyContent: "center" }}>
+          <i />
+          <i />
+          <i />
+        </span>
+        <p style={{ marginTop: 18 }}>Seeing who's already here…</p>
+      </div>
+    );
 
-      <section className="section" style={{ maxWidth: 680 }}>
+  return (
+    <div className="stagger">
+      <div className="topbar" style={{ padding: 0 }}>
+        <div className="greeting">
+          <h1>Let's get acquainted</h1>
+          <p>
+            Three short steps, and your progress keeps itself. The final
+            unlock needs real telemetry from the unit — practice data doesn't
+            count.
+          </p>
+        </div>
+      </div>
+
+      <section className="card" style={{ maxWidth: 640 }}>
         <div className="wizard">
-          {node(1, "Check device")}
+          {node(1, "Spot the unit")}
           <span className="tie" />
-          {node(2, "Make it yours")}
+          {node(2, "Name the tunnel")}
           <span className="tie" />
-          {node(3, "Verify & grow")}
+          {node(3, "Seal the match")}
         </div>
 
-        <div className="panel">
-          {step === 1 && (
-            <div>
-              <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 400, fontSize: 24, marginBottom: 6 }}>
-                Find your field unit
-              </h2>
-              <p className="quiet" style={{ marginBottom: 18 }}>
-                The ESP32 reports as <span className="num">{latest?.deviceId || "——"}</span>.
-                Activation needs a fresh hardware report — simulation does not
-                count.
-              </p>
-              <p style={{ marginBottom: 22 }}>
-                {activation.receiving ? (
-                  <span className="badge good">Receiving</span>
-                ) : (
-                  <span className="badge warning">
-                    {latest ? "Not reporting fresh data" : "No report yet"}
-                  </span>
-                )}
-              </p>
+        {step === 1 && (
+          <div>
+            <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 4px" }}>
+              Is the little box out there?
+            </h2>
+            <p className="quiet" style={{ marginBottom: 18 }}>
+              It introduces itself as <span className="num">{latest?.deviceId || "——"}</span>.
+              We just need to see a fresh hardware report before we shake
+              hands.
+            </p>
+            <p style={{ marginBottom: 22 }}>
+              {activation.receiving ? (
+                <span className="badge good">Found it — it's talking</span>
+              ) : (
+                <span className="badge warning">
+                  {latest ? "It's gone quiet" : "Haven't met it yet"}
+                </span>
+              )}
+            </p>
+            <button
+              className="pill-btn solid"
+              disabled={!activation.receiving}
+              onClick={() => setStep(2)}
+            >
+              On to the details →
+            </button>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div>
+            <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 4px" }}>
+              Put your name on it
+            </h2>
+            <p className="quiet" style={{ marginBottom: 20 }}>
+              These details stick to the unit currently reporting in.
+            </p>
+            <div className="field">
+              <label htmlFor="gh-name">What do you call your greenhouse?</label>
+              <input
+                id="gh-name"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  persistDraft({ name: e.target.value, farmerName, crop });
+                }}
+                placeholder="The north tunnel, Papa's garden…"
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="gh-farmer">And who tends it?</label>
+              <input
+                id="gh-farmer"
+                value={farmerName}
+                onChange={(e) => {
+                  setFarmerName(e.target.value);
+                  persistDraft({ name, farmerName: e.target.value, crop });
+                }}
+                placeholder="Your name"
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="gh-crop">
+                What's growing in there? <span className="quiet">(say it later if you like)</span>
+              </label>
+              <input
+                id="gh-crop"
+                value={crop}
+                onChange={(e) => {
+                  setCrop(e.target.value);
+                  persistDraft({ name, farmerName, crop: e.target.value });
+                }}
+                placeholder="Tomatoes, peppers…"
+              />
+            </div>
+            {error && (
+              <div className="notice danger" role="alert" style={{ margin: "0 0 16px" }}>
+                <div>
+                  <strong>That didn't take</strong>
+                  {error}
+                </div>
+              </div>
+            )}
+            <div className="cta-row">
               <button
-                className="cta cta-solid"
-                disabled={!activation.receiving}
-                onClick={() => setStep(2)}
+                className="pill-btn solid"
+                disabled={!fs.canCommand || saving || !name.trim()}
+                onClick={() => void save()}
               >
-                Continue to greenhouse details →
+                {saving ? "Putting it on record…" : "Save it"}
+              </button>
+              <button className="pill-btn ghost" onClick={() => setStep(1)}>
+                Go back
               </button>
             </div>
-          )}
+          </div>
+        )}
 
-          {step === 2 && (
-            <div>
-              <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 400, fontSize: 24, marginBottom: 6 }}>
-                Make it yours
-              </h2>
-              <p className="quiet" style={{ marginBottom: 20 }}>
-                Saved against the reporting device {latest?.deviceId || "——"}.
-              </p>
-              <div className="field">
-                <label htmlFor="gh-name">Greenhouse name</label>
-                <input
-                  id="gh-name"
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    persistDraft({ name: e.target.value, farmerName, crop });
-                  }}
-                  placeholder="e.g. North tunnel"
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="gh-farmer">Operator name</label>
-                <input
-                  id="gh-farmer"
-                  value={farmerName}
-                  onChange={(e) => {
-                    setFarmerName(e.target.value);
-                    persistDraft({ name, farmerName: e.target.value, crop });
-                  }}
-                  placeholder="Who runs this greenhouse?"
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="gh-crop">
-                  Crop <span className="quiet">(optional)</span>
-                </label>
-                <input
-                  id="gh-crop"
-                  value={crop}
-                  onChange={(e) => {
-                    setCrop(e.target.value);
-                    persistDraft({ name, farmerName, crop: e.target.value });
-                  }}
-                  placeholder="e.g. Tomatoes"
-                />
-              </div>
-              {error && (
-                <div className="notice danger" role="alert" style={{ margin: "0 0 18px" }}>
-                  <div>
-                    <strong>Could not save</strong>
-                    {error}
-                  </div>
-                </div>
-              )}
-              <div className="cta-row">
-                <button
-                  className="cta cta-solid"
-                  disabled={!fs.canCommand || saving || !name.trim()}
-                  onClick={() => void save()}
-                >
-                  {saving ? "Saving…" : "Save and verify"}
-                </button>
-                <button className="cta cta-line" onClick={() => setStep(1)}>
-                  Back
-                </button>
-              </div>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div>
-              <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 400, fontSize: 24, marginBottom: 6 }}>
-                Confirm and grow
-              </h2>
-              <p className="quiet" style={{ marginBottom: 18 }}>
-                Activation completes when the field unit acknowledges your
-                profile on the record.
-              </p>
-              <ul className="ritual">
-                <li className={farm ? "done" : "pending"}>
-                  {farm ? "✓" : "○"} Profile saved on the server
-                </li>
-                <li className={activation.profileSaved ? "done" : "pending"}>
-                  {activation.profileSaved ? "✓" : "○"} Matching profile saved
-                  on the ESP32
-                </li>
-                <li
-                  className={
-                    activation.receiving && activation.matching
-                      ? "done"
-                      : "pending"
-                  }
-                >
-                  {activation.receiving && activation.matching ? "✓" : "○"}{" "}
-                  Fresh report from the registered device
-                </li>
-              </ul>
-              {activation.ready && (
-                <p className="quiet" style={{ marginBottom: 18 }}>
-                  The 12-hour report clock started at{" "}
-                  <span className="num">
-                    {new Date(
-                      farm!.commissionedAt || farm!.deviceSyncedAt!,
-                    ).toLocaleString()}
+        {step === 3 && (
+          <div>
+            <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 4px" }}>
+              The handshake
+            </h2>
+            <p className="quiet" style={{ marginBottom: 18 }}>
+              You're done when the unit itself confirms your details — watch
+              the three lamps below.
+            </p>
+            <div className="row-list" style={{ marginBottom: 18 }}>
+              {[
+                { ok: Boolean(farm), label: "The server has your details" },
+                {
+                  ok: activation.profileSaved,
+                  label: "The unit carries the same profile",
+                },
+                {
+                  ok: activation.receiving && activation.matching,
+                  label: "It's reporting fresh, and it's the right unit",
+                },
+              ].map((item) => (
+                <div className="row-item" key={item.label}>
+                  <span className={`ri-icon ${item.ok ? "good" : "neutral"}`}>
+                    {item.ok ? "✓" : "○"}
                   </span>
-                  .
-                </p>
-              )}
-              <div className="cta-row">
-                <a className="cta cta-solid" href="#overview">
-                  Open my greenhouse →
-                </a>
-                <button className="cta cta-line" onClick={() => setStep(2)}>
-                  Edit details
-                </button>
-              </div>
+                  <div className="ri-body">
+                    <h3 style={{ fontWeight: item.ok ? 700 : 500 }}>{item.label}</h3>
+                  </div>
+                  <span className={`badge ${item.ok ? "good" : "neutral"}`}>
+                    {item.ok ? "Lit" : "Waiting"}
+                  </span>
+                </div>
+              ))}
             </div>
-          )}
-        </div>
+            {activation.ready && (
+              <p className="quiet" style={{ marginBottom: 18 }}>
+                Your twelve-hour clock started at{" "}
+                <span className="num">
+                  {new Date(
+                    farm!.commissionedAt || farm!.deviceSyncedAt!,
+                  ).toLocaleString()}
+                </span>
+                .
+              </p>
+            )}
+            <div className="cta-row">
+              <a
+                className="pill-btn solid"
+                href="#overview"
+                style={{ textDecoration: "none" }}
+              >
+                Take me to my greenhouse →
+              </a>
+              <button className="pill-btn ghost" onClick={() => setStep(2)}>
+                Change the details
+              </button>
+            </div>
+          </div>
+        )}
       </section>
-    </>
+
+      <div style={{ textAlign: "center" }}>
+        <GreenhouseScene width={360} />
+      </div>
+    </div>
   );
 }

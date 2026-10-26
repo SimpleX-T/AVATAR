@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { LiveState } from "../lib/useLive";
 import { numeric } from "../lib/model";
 import { sendCommand, CommandStatus } from "../lib/api";
-import { IconFire, IconDroplet } from "../components/icons";
+import { ProbeHiccup } from "../components/illustrations";
+import { IconFire, IconDroplet, IconSignal } from "../components/icons";
 
 type Note = { text: string; tone: "ok" | "err" | "" };
 
 export default function Readings({ live }: { live: LiveState }) {
-  const { fs, latest, now } = live;
+  const { fs, latest, now, loading } = live;
   const r = fs.readings;
   const probe = r.probe?.raw || {};
   const [note, setNote] = useState<Note>({ text: "", tone: "" });
@@ -17,10 +18,10 @@ export default function Readings({ live }: { live: LiveState }) {
     const result = live.commandResult;
     if (!result) return;
     if (result.status.applied)
-      setNote({ text: "Field unit applied the command.", tone: "ok" });
+      setNote({ text: "Done — the unit confirmed it did the job.", tone: "ok" });
     else
       setNote({
-        text: result.status.error || "Field unit rejected the command.",
+        text: result.status.error || "The unit said no to that one.",
         tone: "err",
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -34,13 +35,25 @@ export default function Readings({ live }: { live: LiveState }) {
     try {
       const command: CommandStatus = await sendCommand(latest!.deviceId, action);
       live.enqueue(command.commandId, action);
-      setNote({ text: "Queued — waiting for the field unit.", tone: "" });
+      setNote({ text: "On its way — waiting for the unit to answer.", tone: "" });
     } catch (e) {
       setNote({ text: (e as Error).message, tone: "err" });
     } finally {
       setBusy(false);
     }
   };
+
+  if (loading)
+    return (
+      <div className="empty" style={{ padding: "120px 20px" }}>
+        <span className="dots" style={{ justifyContent: "center" }}>
+          <i />
+          <i />
+          <i />
+        </span>
+        <p style={{ marginTop: 18 }}>Pulling the ledger together…</p>
+      </div>
+    );
 
   const rows: {
     name: string;
@@ -51,98 +64,110 @@ export default function Readings({ live }: { live: LiveState }) {
   }[] = [
     {
       name: "Air temperature",
-      sub: "DHT11 · bench sensor, uncalibrated",
+      sub: "DHT11 · a bench-grade sensor, so treat it gently",
       value: numeric(r.temperatureC) === null ? "——" : numeric(r.temperatureC)!.toFixed(1),
       unit: "°C",
       badge: numeric(r.temperatureC) === null
-        ? { text: "No data", severity: "neutral" }
-        : { text: "Reporting", severity: "good" },
+        ? { text: "Nothing yet", severity: "neutral" }
+        : { text: "Live", severity: "good" },
     },
     {
       name: "Humidity",
-      sub: "DHT11 · relative humidity",
+      sub: "DHT11 · moisture in the air",
       value: numeric(r.humidityPercent) === null ? "——" : numeric(r.humidityPercent)!.toFixed(1),
       unit: "% RH",
       badge: numeric(r.humidityPercent) === null
-        ? { text: "No data", severity: "neutral" }
-        : { text: "Reporting", severity: "good" },
+        ? { text: "Nothing yet", severity: "neutral" }
+        : { text: "Live", severity: "good" },
     },
     {
       name: "Soil moisture",
-      sub: "Capacitive probe · raw ADC counts",
+      sub: "Capacitive probe · raw counts off the ADC",
       value: fs.soilRaw === null ? "——" : String(fs.soilRaw),
       badge:
         r.soilSensorEnabled === false
-          ? { text: "Disabled", severity: "neutral" }
+          ? { text: "Switched off", severity: "neutral" }
           : fs.soilValid
-            ? { text: r.soilDry ? "Dry" : "Valid", severity: "good" }
-            : { text: "Invalid", severity: "warning" },
+            ? { text: r.soilDry ? "Bone dry" : "Looking good", severity: "good" }
+            : { text: "Doesn't add up", severity: "warning" },
     },
     {
-      name: "Atmosphere · MQ-6",
-      sub: "Raw gas signal — not a concentration",
+      name: "Air sniffer · MQ-6",
+      sub: "A raw hint of gas, not a lab number",
       value: numeric(r.mq6Raw) === null ? "——" : String(numeric(r.mq6Raw)),
       unit: "ADC",
       badge: numeric(r.mq6Raw) === null
-        ? { text: "No data", severity: "neutral" }
-        : { text: "Reporting", severity: "good" },
+        ? { text: "Nothing yet", severity: "neutral" }
+        : { text: "Live", severity: "good" },
     },
     {
       name: "Probe pH",
-      sub: "RS-485 register · unverified scaling",
+      sub: "RS-485 register · scale still unverified",
       value: numeric(probe.ph) === null ? "——" : String(numeric(probe.ph)),
       badge: numeric(probe.ph) === null
-        ? { text: "Awaiting probe", severity: "neutral" }
-        : { text: "Reporting", severity: "good" },
+        ? { text: "Probe asleep", severity: "neutral" }
+        : { text: "Live", severity: "good" },
     },
     {
       name: "Probe EC",
-      sub: "RS-485 register · unverified scaling",
+      sub: "RS-485 register · scale still unverified",
       value: numeric(probe.ec) === null ? "——" : String(numeric(probe.ec)),
       badge: numeric(probe.ec) === null
-        ? { text: "Awaiting probe", severity: "neutral" }
-        : { text: "Reporting", severity: "good" },
+        ? { text: "Probe asleep", severity: "neutral" }
+        : { text: "Live", severity: "good" },
     },
     {
       name: "N · P · K",
-      sub: "RS-485 NPK raw registers",
+      sub: "The three RS-485 nutrient registers",
       value:
         numeric(probe.nitrogen) === null
           ? "——"
           : `${numeric(probe.nitrogen)} / ${numeric(probe.phosphorus) ?? "—"} / ${numeric(probe.potassium) ?? "—"}`,
       badge: numeric(probe.nitrogen) === null
-        ? { text: "Awaiting probe", severity: "neutral" }
-        : { text: "Reporting", severity: "good" },
+        ? { text: "Probe asleep", severity: "neutral" }
+        : { text: "Live", severity: "good" },
     },
   ];
 
   return (
-    <>
-      <p className="kicker">Sensor ledger</p>
-      <h1 className="headline">
-        What the field <em>reports.</em>
-      </h1>
-      <p className="sub">
-        Every row is a measurement taken by the field unit. Gaps stay gaps —
-        nothing is averaged into existence.
-      </p>
-      <p className="meta-line">
-        {fs.usbOnly
-          ? "BENCH DEVICE REPORT"
-          : live.source === "thingspeak"
-            ? "CLOUD OBSERVATION"
-            : "PHYSICAL FIELD REPORT"}
-        {fs.at ? ` · RECEIVED ${Math.max(0, Math.round((now - fs.at) / 1000))}S AGO` : ""}
-      </p>
+    <div className="stagger">
+      <div className="topbar" style={{ padding: 0 }}>
+        <div className="greeting">
+          <h1>Every channel, exactly as reported</h1>
+          <p>
+            Raw numbers straight off the sensors. When something's missing,
+            we say so instead of guessing.
+          </p>
+        </div>
+        <div className="actions">
+          <span className="badge neutral">
+            {fs.usbOnly
+              ? "BENCH BUILD"
+              : live.source === "thingspeak"
+                ? "FROM THE CLOUD RECORD"
+                : "STRAIGHT FROM THE UNIT"}
+          </span>
+        </div>
+      </div>
 
-      <section className="section">
-        <div className="panel">
+      {!fs.soilValid && r.soilSensorEnabled !== false && (
+        <div className="notice warning">
+          <ProbeHiccup width={64} />
+          <div style={{ alignSelf: "center" }}>
+            <strong>The soil probe's cable seems to have popped out</strong>
+            Reseat it at both ends and this row will wake up on its own.
+          </div>
+        </div>
+      )}
+
+      <section className="card">
+        <div style={{ overflowX: "auto" }}>
           <table className="ledger">
             <thead>
               <tr>
                 <th>Channel</th>
-                <th>Value</th>
-                <th>State</th>
+                <th>Reading</th>
+                <th>Verdict</th>
               </tr>
             </thead>
             <tbody>
@@ -157,7 +182,7 @@ export default function Readings({ live }: { live: LiveState }) {
                     {row.unit && <span className="unit"> {row.unit}</span>}
                   </td>
                   <td>
-                    <span className={`badge ${row.badge.severity || "neutral"}`}>
+                    <span className={`badge ${row.badge.severity}`}>
                       {row.badge.text}
                     </span>
                   </td>
@@ -165,108 +190,70 @@ export default function Readings({ live }: { live: LiveState }) {
               ))}
             </tbody>
           </table>
-          <p className="disclaimer">
-            Soil-probe numbers are raw register values with unverified scaling.
-            MQ-6 values are uncalibrated signals, not a gas concentration or
-            safety assessment.
-          </p>
         </div>
+        <p className="disclaimer">
+          The soil-probe registers use a generic manual's scaling, so treat
+          them as research values. The MQ-6 numbers are hints, not gas
+          concentrations. Taken{" "}
+          {fs.at ? `${Math.max(0, Math.round((now - fs.at) / 1000))}s before now` : "—"}.
+        </p>
       </section>
 
-      <section className="section">
-        <div className="section-head">
-          <h2>
-            <span className="index">⌁</span>Field unit &amp; controls
-          </h2>
-          <span className="hint">{latest?.hardwareProfile || "unknown profile"}</span>
+      <section className="card">
+        <div className="card-head">
+          <h2>Do things from here</h2>
+          <span className="hint">one pump · 3 seconds max · 10 s cool-off</span>
         </div>
-        <div className="panel">
-          <table className="ledger">
-            <tbody>
-              <tr>
-                <td className="chan">Device identifier</td>
-                <td className="val" style={{ fontSize: 13.5 }}>{latest?.deviceId || "——"}</td>
-              </tr>
-              <tr>
-                <td>
-                  <span className="chan">Wi-Fi signal</span>
-                  <span className="chan-sub">radio link quality</span>
-                </td>
-                <td className="val">
-                  {Number.isFinite(latest?.wifiRssi) ? `${latest!.wifiRssi} dBm` : "——"}
-                </td>
-              </tr>
-              <tr>
-                <td>
-                  <span className="chan">Cloud history</span>
-                  <span className="chan-sub">
-                    {live.source === "thingspeak"
-                      ? "from private ThingSpeak channels"
-                      : "from the live device stream"}
-                  </span>
-                </td>
-                <td>
-                  {live.cloudAvailable === undefined ? (
-                    <span className="badge neutral">Checking</span>
-                  ) : live.cloudAvailable ? (
-                    <span className="badge good">Configured</span>
-                  ) : (
-                    <span className="badge warning">Unavailable</span>
-                  )}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--line)" }}>
-            <p style={{ margin: "0 0 6px", fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink-2)" }}>
-              Manual pump triggers
-            </p>
-            <p className="quiet" style={{ marginBottom: 16 }}>
-              One pump at a time, three seconds maximum, ten-second cooldown
-              after each stop. Automatic fire and irrigation responses always
-              take priority.
-            </p>
-            <div className="cta-row">
-              <button
-                className="cta cta-line"
-                disabled={!fs.canCommand || anyPending || busy}
-                onClick={() => void trigger("PING")}
-              >
-                Test cloud link
-              </button>
-              <button
-                className="cta cta-line"
-                disabled={!fs.canCommand || anyPending || busy}
-                onClick={() => void trigger("TEST_FIRE_PUMP")}
-              >
-                <IconFire size={15} /> Fire pump · 3 s
-              </button>
-              <button
-                className="cta cta-line"
-                disabled={!fs.canCommand || anyPending || busy}
-                onClick={() => void trigger("TEST_HYDRATION_PUMP")}
-              >
-                <IconDroplet size={15} /> Hydration pump · 3 s
-              </button>
-              <button
-                className="cta cta-flame"
-                disabled={!fs.canCommand || anyPending || busy}
-                onClick={() => void trigger("STOP_PUMP_TEST")}
-              >
-                Stop pump test
-              </button>
-            </div>
-            <p
-              className={`draft-note ${note.tone === "ok" ? "" : ""}`}
-              style={{ color: note.tone === "ok" ? "var(--mint)" : note.tone === "err" ? "var(--flame)" : "var(--ink-3)" }}
-              role="status"
-            >
-              {note.text}
-            </p>
-          </div>
+        <p className="quiet" style={{ marginTop: -6, marginBottom: 16 }}>
+          If the unit is busy protecting itself, your request politely waits —
+          its own safety calls always win.
+        </p>
+        <div className="cta-row">
+          <button
+            className="pill-btn ghost"
+            disabled={!fs.canCommand || anyPending || busy}
+            onClick={() => void trigger("PING")}
+          >
+            <IconSignal size={15} /> Give it a shout
+          </button>
+          <button
+            className="pill-btn ghost"
+            disabled={!fs.canCommand || anyPending || busy}
+            onClick={() => void trigger("TEST_FIRE_PUMP")}
+          >
+            <IconFire size={15} /> Fire pump — quick burst
+          </button>
+          <button
+            className="pill-btn ghost"
+            disabled={!fs.canCommand || anyPending || busy}
+            onClick={() => void trigger("TEST_HYDRATION_PUMP")}
+          >
+            <IconDroplet size={15} /> Water pump — quick burst
+          </button>
+          <button
+            className="pill-btn danger"
+            disabled={!fs.canCommand || anyPending || busy}
+            onClick={() => void trigger("STOP_PUMP_TEST")}
+          >
+            Stop everything
+          </button>
         </div>
+        <p
+          className="quiet"
+          role="status"
+          style={{
+            marginTop: 14,
+            color:
+              note.tone === "ok"
+                ? "var(--green)"
+                : note.tone === "err"
+                  ? "var(--red)"
+                  : "var(--ink-3)",
+          }}
+        >
+          {note.text}
+        </p>
       </section>
-    </>
+    </div>
   );
 }
