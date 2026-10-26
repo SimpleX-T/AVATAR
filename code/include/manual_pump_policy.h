@@ -4,7 +4,7 @@
 
 enum class ManualPump : uint8_t { None, Hydration, Fire };
 
-constexpr uint32_t MANUAL_PUMP_RUN_MS = 3000;
+constexpr uint32_t MANUAL_PUMP_RUN_MS = 15000; // DIAGNOSTIC: extended from 3000
 constexpr uint32_t MANUAL_PUMP_COOLDOWN_MS = 10000;
 
 inline uint32_t manualPumpCooldownRemaining(bool hasStopped,

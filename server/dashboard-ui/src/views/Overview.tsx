@@ -1,87 +1,46 @@
 import { useMemo } from "react";
+import { LiveState } from "../lib/useLive";
 import {
-  LiveState,
-  FeedEntry,
-} from "../lib/useLive";
-import { temperaturePoints, numeric, numericSeries } from "../lib/model";
+  temperaturePoints,
+  numeric,
+  numericSeries,
+} from "../lib/model";
 import { Sparkline, TrendChart, RadialGauge } from "../components/charts";
 import {
   IconThermometer,
   IconDroplet,
   IconLeaf,
-  IconSignal,
   IconFire,
   IconWind,
   IconAlert,
   IconShield,
 } from "../components/icons";
 
-function timeAgo(ms: number): string {
+function ago(ms: number): string {
   const s = Math.max(0, Math.round(ms / 1000));
-  if (s < 60) return `${s}s ago`;
+  if (s < 60) return `${s}s`;
   const m = Math.round(s / 60);
-  if (m < 60) return `${m} min ago`;
-  return `${Math.round(m / 60)} h ago`;
+  return m < 60 ? `${m}min` : `${Math.round(m / 60)}h`;
 }
 
-function StatCard({
+function BigNum({
   label,
-  icon,
   value,
   unit,
-  foot,
-  spark,
-  id,
+  tone,
 }: {
   label: string;
-  icon: React.ReactNode;
   value: string;
   unit?: string;
-  foot: string;
-  spark?: { at: number; value: number }[];
-  id: string;
+  tone?: "warn" | "alert";
 }) {
   return (
-    <article className="stat-card rise">
-      <span className="stat-label">
-        {icon}
-        {label}
-      </span>
-      <span className="stat-value">
+    <div className="bignum">
+      <span className="label">{label}</span>
+      <span className={`value ${tone || ""}`}>
         {value}
         {unit && <span className="unit">{unit}</span>}
       </span>
-      <span className="stat-foot">{foot}</span>
-      {spark && spark.length > 1 && (
-        <div className="stat-spark">
-          <Sparkline points={spark} id={id} />
-        </div>
-      )}
-    </article>
-  );
-}
-
-function ProtectionRow({
-  icon,
-  tone,
-  title,
-  detail,
-  pill,
-}: {
-  icon: React.ReactNode;
-  tone: string;
-  title: string;
-  detail: string;
-  pill: { text: string; severity: string };
-}) {
-  return (
-    <div className="protection-row">
-      <div className={`protection-icon ${tone}`}>{icon}</div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <h3>{title}</h3>
-        <p>{detail}</p>
-      </div>
-      <span className={`pill ${pill.severity || "neutral"}`}>{pill.text}</span>
     </div>
   );
 }
@@ -91,13 +50,14 @@ export default function Overview({
   onNavigate,
 }: {
   live: LiveState;
-  onNavigate: (hash: string) => void;
+  onNavigate: (v: "readings" | "setup" | "activity") => void;
 }) {
   const { fs, latest, farm, history, now } = live;
   const r = fs.readings;
   const temp = numeric(r.temperatureC);
   const humidity = numeric(r.humidityPercent);
   const mq6 = numeric(r.mq6Raw);
+
   const tempSpark = useMemo(
     () => numericSeries(history, (readings) => numeric(readings.temperatureC)),
     [history],
@@ -112,8 +72,8 @@ export default function Overview({
   );
   const trend = useMemo(() => temperaturePoints(history), [history]);
 
-  // Readiness gauge: share of healthy subsystems reporting in.
-  const gauge = useMemo(() => {
+  // Readiness dial: subsystems reporting, never faked.
+  const dial = useMemo(() => {
     let score = 0;
     let max = 0;
     const bump = (ok: boolean) => {
@@ -124,47 +84,47 @@ export default function Overview({
     bump(humidity !== null);
     bump(fs.soilValid);
     bump(r.fireSensorEnabled === true && r.fireSensorReady === true);
-    bump(numeric(r.mq6Raw) !== null && numeric(r.mq6Raw)! > 0);
-    const validated = r.probe?.validated;
-    bump(validated === true);
+    bump(mq6 !== null && mq6 > 0);
+    bump(r.probe?.validated === true);
     const value = max === 0 ? 0 : (score / max) * 100;
-    const sub =
-      max === 0
-        ? "waiting for the field unit"
-        : `${score} of ${max} subsystems reporting`;
-    const severity =
-      !fs.fresh ? "warning" : value >= 60 ? "good" : "warning";
-    return { value, sub, severity } as const;
-  }, [temp, humidity, fs, r]);
+    return {
+      value,
+      sub: `${score} of ${max} subsystems reporting`,
+      severity: (!fs.fresh || value < 60 ? "warning" : "good") as
+        | "warning"
+        | "good",
+    };
+  }, [temp, humidity, fs, r, mq6]);
+
+  const headline = !latest
+    ? ["Waiting for the", "first report."]
+    : !fs.fresh
+      ? ["The field is", "quiet."]
+      : fs.fire[2] === "danger"
+        ? ["The field", "needs you."]
+        : ["Good growing", "keeps going."];
 
   const alert = (() => {
     if (fs.fire[2] === "danger")
       return {
-        tone: "danger",
+        tone: "danger" as const,
         icon: <IconFire />,
-        title: "Fire response state needs attention",
+        title: "Fire state demands attention",
         body: fs.fire[1],
       };
     if (fs.water[2] === "danger")
       return {
-        tone: "danger",
+        tone: "danger" as const,
         icon: <IconDroplet />,
-        title: "Irrigation safety lock is engaged",
+        title: "Irrigation safety lock engaged",
         body: fs.water[1],
       };
     if (!fs.fresh && latest)
       return {
-        tone: "warning",
+        tone: "warning" as const,
         icon: <IconAlert />,
         title: "Field report is stale",
-        body: `Last observation arrived ${timeAgo(now - fs.at)}. Local protection limits stay active on the ESP32.`,
-      };
-    if (fs.usbOnly)
-      return {
-        tone: "info",
-        icon: <IconAlert />,
-        title: "Bench build",
-        body: "The field unit reports over USB with external hardware disabled; values verify the link, not the greenhouse.",
+        body: `Last observation arrived ${ago(now - fs.at)} ago. Local protection limits stay active on the ESP32.`,
       };
     const gaps: string[] = [];
     if (temp === null) gaps.push("air climate");
@@ -172,57 +132,95 @@ export default function Overview({
     if (r.fireSensorEnabled !== true) gaps.push("fire detector");
     if (gaps.length)
       return {
-        tone: "warning",
+        tone: "warning" as const,
         icon: <IconAlert />,
         title: "Sensor gaps",
-        body: `No valid data from ${gaps.join(", ")}. Gaps are shown, never estimated.`,
+        body: `No valid data from ${gaps.join(", ")} — shown as gaps, never estimated.`,
       };
     return null;
   })();
 
+  const breaker = (
+    title: string,
+    triple: [string, string, string],
+    icon: React.ReactNode,
+  ) => {
+    const tone =
+      triple[2] === "danger"
+        ? "danger"
+        : triple[2] === "warning"
+          ? "warning"
+          : triple[2] === "good"
+            ? "good"
+            : "neutral";
+    const fill =
+      triple[0] === "Monitoring" || triple[0] === "Standby"
+        ? 18
+        : triple[0] === "Watering" || triple[0] === "Active"
+          ? 86
+          : triple[0] === "Soaking"
+            ? 55
+            : 40;
+    return (
+      <div className={`breaker tone-${tone}`}>
+        <div className="breaker-top">
+          <span className="breaker-title">{title}</span>
+          <span className={`badge ${tone}`}>{triple[0]}</span>
+        </div>
+        <div className="state-bar">
+          <div className="fill" style={{ width: `${fill}%` }} />
+        </div>
+        <p>{triple[1]}</p>
+        <div style={{ marginTop: 12, color: "var(--ink-3)" }}>{icon}</div>
+      </div>
+    );
+  };
+
   return (
     <>
-      <header className="page-head rise">
-        <p className="eyebrow">
-          {new Date(now).toLocaleDateString([], {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-          })}
-        </p>
-        <h1>
-          {farm?.name || "Your greenhouse"}{" "}
-          <em>
-            {fs.fresh
-              ? fs.fire[2] === "danger"
-                ? "needs you."
-                : "is holding steady."
-              : "is offline."}
-          </em>
-        </h1>
-        <p className="lede">
-          {fs.fresh
-            ? "Live field telemetry, bounded local responses, and cloud records — with every gap shown honestly."
-            : "The field unit has not reported recently. Its local safety limits keep working without the network."}
-        </p>
-        <p className="head-meta">
-          {latest
-            ? `Last field report ${timeAgo(Math.max(0, now - fs.at))} · device ${latest.deviceId}`
-            : "Waiting for the first field report"}
-        </p>
-      </header>
+      <p className="kicker">
+        {new Date(now).toLocaleDateString([], {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+        })}
+        {farm?.name ? ` — ${farm.name}` : ""}
+      </p>
+      <h1 className="headline">
+        {headline[0]}
+        <br />
+        <em>{headline[1]}</em>
+      </h1>
+      <p className="sub">
+        {fs.fresh
+          ? "Live telemetry from the field unit, bounded local responses on the ESP32, and a cloud record you can trust — every gap shown, nothing invented."
+          : "The field unit has not reported recently. Its safety limits keep working without the network; this page resumes the moment it checks in."}
+      </p>
+      <p className="meta-line">
+        {latest
+          ? `LAST REPORT ${ago(Math.max(0, now - fs.at))} AGO · DEVICE ${latest.deviceId} · ${fs.usbOnly ? "BENCH BUILD" : latest.hardwareProfile?.toUpperCase()}`
+          : "AWAITING FIRST FIELD REPORT"}
+      </p>
 
       {farm && !farm.deviceSyncedAt && (
-        <div className="setup-nudge rise">
-          <span>Greenhouse setup is not finished — the field unit has not acknowledged your profile.</span>
-          <button className="btn btn-outline" onClick={() => onNavigate("#setup")}>
-            Continue setup
-          </button>
+        <div className="notice warning" role="status">
+          <IconAlert />
+          <div>
+            <strong>Setup is not finished</strong>
+            The field unit has not acknowledged your greenhouse profile yet.
+            <button
+              className="cta cta-line"
+              style={{ marginLeft: 14, padding: "8px 18px", fontSize: 13 }}
+              onClick={() => onNavigate("setup")}
+            >
+              Continue setup
+            </button>
+          </div>
         </div>
       )}
 
       {alert && (
-        <div className={`alert-banner ${alert.tone} rise`} role="status">
+        <div className={`notice ${alert.tone}`} role="status">
           {alert.icon}
           <div>
             <strong>{alert.title}</strong>
@@ -231,70 +229,58 @@ export default function Overview({
         </div>
       )}
 
-      <div className="grid-cards">
-        <StatCard
-          id="temp"
-          label="Air temperature"
-          icon={<IconThermometer />}
-          value={temp === null ? "—" : temp.toFixed(1)}
-          unit="°C"
-          foot={
-            tempSpark.length > 1
-              ? `${tempSpark.length} recent observations`
-              : "waiting for readings"
-          }
-          spark={tempSpark}
-        />
-        <StatCard
-          id="hum"
-          label="Humidity"
-          icon={<IconWind />}
-          value={humidity === null ? "—" : humidity.toFixed(1)}
-          unit="% RH"
-          foot={
-            humSpark.length > 1
-              ? `${humSpark.length} recent observations`
-              : "waiting for readings"
-          }
-          spark={humSpark}
-        />
-        <StatCard
-          id="soil"
-          label="Soil moisture"
-          icon={<IconLeaf />}
-          value={fs.soilRaw === null ? "—" : String(fs.soilRaw)}
-          unit="ADC"
-          foot={
-            r.soilSensorEnabled === false
-              ? "soil input disabled"
-              : fs.soilValid
-                ? r.soilDry
-                  ? "dry · local policy may water"
-                  : "within valid range"
-                : "invalid or missing"
-          }
-          spark={soilSpark}
-        />
-        <StatCard
-          id="link"
-          label="Field link"
-          icon={<IconSignal />}
-          value={
-            latest?.wifiRssi !== undefined && Number.isFinite(latest?.wifiRssi)
-              ? String(latest.wifiRssi)
-              : "—"
-          }
-          unit="dBm"
-          foot={`${latest?.hardwareProfile || "unknown profile"}${live.connected ? " · stream live" : ""}`}
-        />
+      <div className="hero">
+        <div className="dial-wrap">
+          <RadialGauge
+            value={dial.value}
+            label={fs.fresh ? "reporting" : "stale"}
+            sub={dial.sub}
+            severity={dial.severity}
+            size={300}
+          />
+        </div>
+
+        <div className="bignum-stack">
+          <BigNum
+            label="Air temperature"
+            value={temp === null ? "——" : temp.toFixed(1)}
+            unit="°C"
+          />
+          <BigNum
+            label="Humidity"
+            value={humidity === null ? "——" : humidity.toFixed(1)}
+            unit="% RH"
+          />
+          <BigNum
+            label="Soil moisture"
+            value={fs.soilRaw === null ? "——" : String(fs.soilRaw)}
+            unit="ADC"
+            tone={
+              fs.soilValid ? (r.soilDry ? "warn" : undefined) : "alert"
+            }
+          />
+          <BigNum
+            label="Field link"
+            value={
+              Number.isFinite(latest?.wifiRssi) ? String(latest!.wifiRssi) : "——"
+            }
+            unit="dBm"
+          />
+        </div>
       </div>
 
-      <div className="split">
-        <section className="panel rise">
-          <div className="panel-title">
-            <h2>Air temperature trend</h2>
-            <span className="hint">live field observations only</span>
-          </div>
+      <section className="section">
+        <div className="section-head">
+          <h2>
+            <span className="index">01</span>Air temperature
+          </h2>
+          <span className="hint">
+            {tempSpark.length > 1
+              ? `${tempSpark.length} recent observations`
+              : "collecting observations"}
+          </span>
+        </div>
+        <div className="panel chart-frame">
           <TrendChart
             points={trend.map((p) => ({
               at: Date.parse(p.receivedAt),
@@ -303,89 +289,111 @@ export default function Overview({
             unit="°C"
             label="temperature"
           />
-        </section>
-
-        <section className="panel rise" style={{ display: "flex", flexDirection: "column" }}>
-          <div className="panel-title">
-            <h2>Greenhouse readiness</h2>
-            <span className="hint">subsystems reporting</span>
-          </div>
-          <div style={{ flex: 1, display: "grid", placeContent: "center" }}>
-            <RadialGauge
-              value={gauge.value}
-              label={fs.fresh ? "reporting" : "stale"}
-              sub={gauge.sub}
-              severity={gauge.severity as "good" | "warning" | "danger"}
-            />
-          </div>
-        </section>
-      </div>
-
-      <section className="panel rise">
-        <div className="panel-title">
-          <h2>Field protection</h2>
-          <span className="hint">decisions run on the ESP32, not in the cloud</span>
         </div>
-        <ProtectionRow
-          icon={<IconFire />}
-          tone={fs.fire[2] === "good" ? "good" : fs.fire[2] === "danger" ? "danger" : "warning"}
-          title="Fire response"
-          detail={fs.fire[1]}
-          pill={{ text: fs.fire[0], severity: fs.fire[2] }}
-        />
-        <ProtectionRow
-          icon={<IconDroplet />}
-          tone={fs.water[2] === "good" ? "good" : fs.water[2] === "danger" ? "danger" : "warning"}
-          title="Irrigation"
-          detail={fs.water[1]}
-          pill={{ text: fs.water[0], severity: fs.water[2] }}
-        />
-        <ProtectionRow
-          icon={<IconShield />}
-          tone={
-            numeric(r.mq6Raw) === null
-              ? "neutral"
-              : numeric(r.mq6Raw)! > 1500
-                ? "warning"
-                : "good"
-          }
-          title="Atmosphere · MQ-6"
-          detail={
-            mq6 === null
-              ? "No gas reading; both MQ-6 inputs must be divided to 3.3 V."
-              : `Raw signal ${mq6} (uncalibrated, not a gas concentration).`
-          }
-          pill={{
-            text: mq6 === null ? "No data" : mq6 > 1500 ? "Elevated" : "Nominal",
-            severity: mq6 === null ? "neutral" : mq6 > 1500 ? "warning" : "good",
-          }}
-        />
+      </section>
+
+      <section className="section">
+        <div className="section-head">
+          <h2>
+            <span className="index">02</span>Protection
+          </h2>
+          <span className="hint">
+            decisions run on the ESP32 — the cloud never holds the keys
+          </span>
+        </div>
+        <div className="breakers">
+          {breaker("Fire response", fs.fire, <IconFire size={16} />)}
+          {breaker("Irrigation", fs.water, <IconDroplet size={16} />)}
+          {breaker(
+            "Atmosphere · MQ-6",
+            [
+              mq6 === null
+                ? "No data"
+                : mq6 > 1500
+                  ? "Elevated"
+                  : "Nominal",
+              mq6 === null
+                ? "No gas reading. Both MQ-6 inputs must be divided to 3.3 V before connection."
+                : `Raw signal ${mq6} — an uncalibrated signal, not a gas concentration.`,
+              mq6 === null ? "neutral" : mq6 > 1500 ? "warning" : "good",
+            ],
+            <IconWind size={16} />,
+          )}
+        </div>
       </section>
 
       {live.feed.length > 0 && (
-        <section className="panel rise">
-          <div className="panel-title">
-            <h2>Latest field activity</h2>
-            <button className="ghost-btn" onClick={() => onNavigate("#activity")}>
-              Open activity
+        <section className="section">
+          <div className="section-head">
+            <h2>
+              <span className="index">03</span>Latest activity
+            </h2>
+            <button className="link-btn" onClick={() => onNavigate("activity")}>
+              Open the full log →
             </button>
           </div>
-          <div className="feed">
-            {live.feed.slice(0, 5).map((entry: FeedEntry, i: number) => (
-              <div className="feed-item" key={`${entry.at}-${i}`}>
-                <time>
-                  {new Date(entry.at).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                  })}
-                </time>
-                <span>{entry.text}</span>
-              </div>
-            ))}
+          <div className="panel">
+            <div className="feed">
+              {live.feed.slice(0, 5).map((entry, i) => (
+                <div className="feed-line" key={`${entry.at}-${i}`}>
+                  <time>
+                    {new Date(entry.at).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    })}
+                  </time>
+                  <span>{entry.text}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
       )}
+
+      <section className="section">
+        <div className="section-head">
+          <h2>
+            <span className="index">04</span>Signals
+          </h2>
+          <span className="hint">recent micro-trends</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
+          <div className="panel" style={{ padding: "18px 0 0" }}>
+            <p className="quiet" style={{ padding: "0 20px", margin: "0 0 8px", fontWeight: 600 }}>
+              Temperature <IconThermometer size={13} />
+            </p>
+            <Sparkline points={tempSpark} id="big-temp" />
+          </div>
+          <div className="panel" style={{ padding: "18px 0 0" }}>
+            <p className="quiet" style={{ padding: "0 20px", margin: "0 0 8px", fontWeight: 600 }}>
+              Humidity <IconWind size={13} />
+            </p>
+            <Sparkline points={humSpark} id="big-hum" />
+          </div>
+          <div className="panel" style={{ padding: "18px 0 0" }}>
+            <p className="quiet" style={{ padding: "0 20px", margin: "0 0 8px", fontWeight: 600 }}>
+              Soil moisture <IconLeaf size={13} />
+            </p>
+            <Sparkline points={soilSpark} id="big-soil" />
+          </div>
+          <div className="panel" style={{ padding: "18px 0 0" }}>
+            <p className="quiet" style={{ padding: "0 20px", margin: "0 0 8px", fontWeight: 600 }}>
+              <IconShield size={13} /> Protection
+            </p>
+            <p className="quiet" style={{ padding: "0 20px 18px", margin: 0 }}>
+              Fire {fs.fire[0].toLowerCase()} · water {fs.water[0].toLowerCase()}.
+              All limits enforced locally on the field unit.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <div style={{ marginTop: 48, textAlign: "center" }}>
+        <button className="cta cta-line" onClick={() => onNavigate("readings")}>
+          Open the sensor ledger →
+        </button>
+      </div>
     </>
   );
 }

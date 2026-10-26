@@ -5,49 +5,42 @@ import Readings from "./views/Readings";
 import Activity from "./views/Activity";
 import Reports from "./views/Reports";
 import Setup from "./views/Setup";
+import { api } from "./lib/api";
 import {
   BrandGlyph,
-  IconOverview,
-  IconReadings,
-  IconActivity,
-  IconReports,
-  IconSetup,
-  IconRefresh,
-  IconLogout,
   IconSun,
   IconMoon,
+  IconRefresh,
 } from "./components/icons";
-import { api } from "./lib/api";
 
-const VIEWS = {
-  overview: { label: "Overview", icon: <IconOverview /> },
-  readings: { label: "Readings", icon: <IconReadings /> },
-  activity: { label: "Activity", icon: <IconActivity /> },
-  reports: { label: "Reports", icon: <IconReports /> },
-  setup: { label: "Setup", icon: <IconSetup /> },
-} as const;
+const VIEWS = ["overview", "readings", "activity", "reports", "setup"] as const;
+type ViewKey = (typeof VIEWS)[number];
 
-type ViewKey = keyof typeof VIEWS;
+const LABELS: Record<ViewKey, string> = {
+  overview: "Observatory",
+  readings: "Readings",
+  activity: "Activity",
+  reports: "Reports",
+  setup: "Setup",
+};
 
 function route(): ViewKey {
-  const hash = window.location.hash.replace("#", "");
-  return (Object.keys(VIEWS) as ViewKey[]).includes(hash as ViewKey)
-    ? (hash as ViewKey)
-    : "overview";
+  const hash = window.location.hash.replace("#", "") as ViewKey;
+  return VIEWS.includes(hash) ? hash : "overview";
 }
 
 export default function App() {
   const live = useLive();
   const [view, setView] = useState<ViewKey>(route);
-  const [theme, setTheme] = useState<"dark" | "light">(
+  const [accent, setAccent] = useState<"night" | "day">(
     () =>
-      (localStorage.getItem("avatar-theme") as "dark" | "light") || "dark",
+      (localStorage.getItem("avatar-accent") as "night" | "day") || "night",
   );
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    localStorage.setItem("avatar-theme", theme);
-  }, [theme]);
+    document.documentElement.dataset.accent = accent;
+    localStorage.setItem("avatar-accent", accent);
+  }, [accent]);
 
   useEffect(() => {
     const onHash = () => setView(route());
@@ -55,9 +48,10 @@ export default function App() {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
-  const navigate = (hash: string) => {
-    window.location.hash = hash;
-    setView(route());
+  const go = (v: ViewKey) => {
+    window.location.hash = v;
+    setView(v);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const signOut = async () => {
@@ -69,107 +63,104 @@ export default function App() {
     window.location.href = "/auth/?logout=1";
   };
 
-  const [offline, setOffline] = useState(!navigator.onLine);
-  useEffect(() => {
-    const off = () => setOffline(true);
-    const on = () => setOffline(false);
-    window.addEventListener("offline", off);
-    window.addEventListener("online", on);
-    return () => {
-      window.removeEventListener("offline", off);
-      window.removeEventListener("online", on);
-    };
-  }, []);
-
-  const go = (v: ViewKey) => navigate(`#${v}`);
+  // Ticker content: telemetry as ambience.
+  const ticks: string[] = [];
+  if (live.latest) {
+    ticks.push(`DEVICE ${live.latest.deviceId}`);
+    ticks.push(`PROFILE ${live.latest.hardwareProfile?.toUpperCase() || "—"}`);
+    if (Number.isFinite(live.latest.wifiRssi))
+      ticks.push(`RSSI ${live.latest.wifiRssi} dBm`);
+    if (live.fs.soilRaw !== null)
+      ticks.push(`SOIL ${live.fs.soilRaw} ADC`);
+    if (Number.isFinite(live.latest.readings?.temperatureC))
+      ticks.push(`AIR ${live.latest.readings!.temperatureC!.toFixed(1)}°C`);
+    ticks.push(
+      `FIRE ${live.fs.fire[0].toUpperCase()} · WATER ${live.fs.water[0].toUpperCase()}`,
+    );
+    if (live.fs.outputs.lastEvent && live.fs.outputs.lastEvent !== "BOOT")
+      ticks.push(`EVENT ${live.fs.outputs.lastEvent.replaceAll("_", " ")}`);
+  }
+  ticks.push(
+    live.connected ? "STREAM CONNECTED" : "STREAM RECONNECTING",
+  );
+  const tickerLine = ticks.join("   ·   ");
+  const setupIncomplete = live.farm && !live.farm.deviceSyncedAt;
 
   return (
-    <div className="shell">
-      <aside className="sidebar">
-        <a className="brand" href="#overview">
-          <span className="brand-glyph">
+    <>
+      <div className="aurora" aria-hidden />
+
+      <header className="masthead">
+        <a className="wordmark" href="#overview" onClick={() => go("overview")}>
+          <span className="glyph">
             <BrandGlyph />
           </span>
           <span>
-            <span className="brand-name">AVATAR</span>
-            <span className="brand-sub">Greenhouse intelligence</span>
+            <span className="word">AVATAR</span>
+            <span className="tag">Field observatory</span>
           </span>
         </a>
 
         <nav className="nav" aria-label="Primary">
-          {(Object.keys(VIEWS) as ViewKey[]).map((key) => (
-            <a
+          {VIEWS.map((key, i) => (
+            <button
               key={key}
-              href={`#${key}`}
               className={view === key ? "active" : ""}
               onClick={() => go(key)}
             >
-              {VIEWS[key].icon}
-              {VIEWS[key].label}
-              {key === "setup" && !live.farm?.deviceSyncedAt && (
-                <span className="nav-dot" aria-label="setup incomplete" />
-              )}
-            </a>
+              <span className="idx">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              {LABELS[key]}
+              {key === "setup" && setupIncomplete && " ·"}
+            </button>
           ))}
         </nav>
 
-        <div className="side-foot">
-          <p className="side-note">
-            Protection stays in the field. If the network drops, the ESP32
-            keeps enforcing fire and irrigation limits on its own.
-          </p>
-          <button
-            className="theme-toggle"
-            onClick={() =>
-              setTheme(theme === "dark" ? "light" : "dark")
-            }
-          >
-            {theme === "dark" ? <IconSun size={15} /> : <IconMoon size={15} />}
-            {theme === "dark" ? "Daylight" : "Nightgrow"}
-          </button>
-          <button className="signout" onClick={() => void signOut()}>
-            <IconLogout size={15} /> Sign out
-          </button>
-        </div>
-      </aside>
-
-      <div className="main">
-        <header className="topbar">
-          <span className="breadcrumb">
-            AVATAR&nbsp;/&nbsp;{VIEWS[view].label}
-          </span>
-          <span className="topbar-spacer" />
-          <span
-            className={`live-chip ${live.fs.fresh && live.connected ? "is-live" : ""}`}
-          >
-            <span className="pulse" />
-            {offline
-              ? "You are offline"
-              : live.fs.fresh
-                ? live.connected
-                  ? "Live stream"
-                  : "Field data fresh"
-                : "Stale · reconnecting"}
+        <div className="mast-right">
+          <span className={`beacon ${live.fs.fresh && live.connected ? "live" : ""}`}>
+            <span className="dot" />
+            {live.fs.fresh ? (live.connected ? "LIVE" : "FRESH") : "STALE"}
           </span>
           <button
-            className="ghost-btn"
+            className="icon-btn"
             onClick={() => void live.refresh()}
             aria-label="Refresh"
           >
-            <IconRefresh /> Refresh
+            <IconRefresh size={15} />
           </button>
-        </header>
+          <button
+            className="icon-btn"
+            onClick={() =>
+              setAccent(accent === "night" ? "day" : "night")
+            }
+            aria-label="Toggle theme"
+          >
+            {accent === "night" ? <IconSun size={15} /> : <IconMoon size={15} />}
+          </button>
+          <button className="link-btn" onClick={() => void signOut()}>
+            Sign out
+          </button>
+        </div>
+      </header>
 
-        <main className="content">
-          {view === "overview" && <Overview live={live} onNavigate={navigate} />}
+      <main className="stage">
+        <div className="view" key={view}>
+          {view === "overview" && <Overview live={live} onNavigate={go} />}
           {view === "readings" && <Readings live={live} />}
           {view === "activity" && <Activity live={live} />}
           {view === "reports" && <Reports live={live} />}
           {view === "setup" && <Setup live={live} />}
-        </main>
-      </div>
+        </div>
+      </main>
 
-      {false && <div className="toast" />}
-    </div>
+      <footer className="ticker" aria-hidden>
+        <span className="tick-label">Field telemetry</span>
+        <div className="tick-track">
+          <span>{tickerLine}</span>
+          <span>{tickerLine}</span>
+        </div>
+      </footer>
+    </>
   );
 }

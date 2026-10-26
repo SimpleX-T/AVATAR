@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { LiveState } from "../lib/useLive";
 import { numeric } from "../lib/model";
 import { sendCommand, CommandStatus } from "../lib/api";
-import { IconFire, IconDroplet, IconSignal } from "../components/icons";
+import { IconFire, IconDroplet } from "../components/icons";
 
 type Note = { text: string; tone: "ok" | "err" | "" };
 
@@ -17,10 +17,7 @@ export default function Readings({ live }: { live: LiveState }) {
     const result = live.commandResult;
     if (!result) return;
     if (result.status.applied)
-      setNote({
-        text: "ESP32 acknowledged the cloud command.",
-        tone: "ok",
-      });
+      setNote({ text: "Field unit applied the command.", tone: "ok" });
     else
       setNote({
         text: result.status.error || "Field unit rejected the command.",
@@ -35,15 +32,9 @@ export default function Readings({ live }: { live: LiveState }) {
     if (!fs.canCommand || anyPending || busy) return;
     setBusy(true);
     try {
-      const command: CommandStatus = await sendCommand(
-        latest!.deviceId,
-        action,
-      );
+      const command: CommandStatus = await sendCommand(latest!.deviceId, action);
       live.enqueue(command.commandId, action);
-      setNote({
-        text: "Queued. Waiting for the field unit to acknowledge.",
-        tone: "",
-      });
+      setNote({ text: "Queued — waiting for the field unit.", tone: "" });
     } catch (e) {
       setNote({ text: (e as Error).message, tone: "err" });
     } finally {
@@ -51,80 +42,75 @@ export default function Readings({ live }: { live: LiveState }) {
     }
   };
 
-  const sourceBadge = fs.usbOnly
-    ? "BENCH DEVICE REPORT"
-    : live.source === "thingspeak"
-      ? "CLOUD OBSERVATION"
-      : "PHYSICAL FIELD REPORT";
-
   const rows: {
     name: string;
     sub: string;
     value: string;
     unit?: string;
-    status: { text: string; severity: string };
+    badge: { text: string; severity: string };
   }[] = [
     {
       name: "Air temperature",
-      sub: "DHT11 · uncalibrated bench sensor",
-      value: numeric(r.temperatureC) === null ? "—" : numeric(r.temperatureC)!.toFixed(1),
+      sub: "DHT11 · bench sensor, uncalibrated",
+      value: numeric(r.temperatureC) === null ? "——" : numeric(r.temperatureC)!.toFixed(1),
       unit: "°C",
-      status: numeric(r.temperatureC) === null
+      badge: numeric(r.temperatureC) === null
         ? { text: "No data", severity: "neutral" }
         : { text: "Reporting", severity: "good" },
     },
     {
       name: "Humidity",
       sub: "DHT11 · relative humidity",
-      value: numeric(r.humidityPercent) === null ? "—" : numeric(r.humidityPercent)!.toFixed(1),
+      value: numeric(r.humidityPercent) === null ? "——" : numeric(r.humidityPercent)!.toFixed(1),
       unit: "% RH",
-      status: numeric(r.humidityPercent) === null
+      badge: numeric(r.humidityPercent) === null
         ? { text: "No data", severity: "neutral" }
         : { text: "Reporting", severity: "good" },
     },
     {
       name: "Soil moisture",
       sub: "Capacitive probe · raw ADC counts",
-      value: fs.soilRaw === null ? "—" : String(fs.soilRaw),
-      status: r.soilSensorEnabled === false
-        ? { text: "Disabled", severity: "neutral" }
-        : fs.soilValid
-          ? { text: r.soilDry ? "Dry" : "Valid", severity: "good" }
-          : { text: "Invalid", severity: "warning" },
+      value: fs.soilRaw === null ? "——" : String(fs.soilRaw),
+      badge:
+        r.soilSensorEnabled === false
+          ? { text: "Disabled", severity: "neutral" }
+          : fs.soilValid
+            ? { text: r.soilDry ? "Dry" : "Valid", severity: "good" }
+            : { text: "Invalid", severity: "warning" },
     },
     {
       name: "Atmosphere · MQ-6",
-      sub: "Raw gas signal, not a concentration",
-      value: numeric(r.mq6Raw) === null ? "—" : String(numeric(r.mq6Raw)),
+      sub: "Raw gas signal — not a concentration",
+      value: numeric(r.mq6Raw) === null ? "——" : String(numeric(r.mq6Raw)),
       unit: "ADC",
-      status: numeric(r.mq6Raw) === null
+      badge: numeric(r.mq6Raw) === null
         ? { text: "No data", severity: "neutral" }
         : { text: "Reporting", severity: "good" },
     },
     {
-      name: "Soil probe pH",
-      sub: "RS-485 raw register, unverified scaling",
-      value: numeric(probe.ph) === null ? "—" : String(numeric(probe.ph)),
-      status: numeric(probe.ph) === null
+      name: "Probe pH",
+      sub: "RS-485 register · unverified scaling",
+      value: numeric(probe.ph) === null ? "——" : String(numeric(probe.ph)),
+      badge: numeric(probe.ph) === null
         ? { text: "Awaiting probe", severity: "neutral" }
         : { text: "Reporting", severity: "good" },
     },
     {
-      name: "Soil probe EC",
-      sub: "RS-485 raw register, unverified scaling",
-      value: numeric(probe.ec) === null ? "—" : String(numeric(probe.ec)),
-      status: numeric(probe.ec) === null
+      name: "Probe EC",
+      sub: "RS-485 register · unverified scaling",
+      value: numeric(probe.ec) === null ? "——" : String(numeric(probe.ec)),
+      badge: numeric(probe.ec) === null
         ? { text: "Awaiting probe", severity: "neutral" }
         : { text: "Reporting", severity: "good" },
     },
     {
-      name: "Nitrogen · Phosphorus · Potassium",
+      name: "N · P · K",
       sub: "RS-485 NPK raw registers",
       value:
         numeric(probe.nitrogen) === null
-          ? "—"
+          ? "——"
           : `${numeric(probe.nitrogen)} / ${numeric(probe.phosphorus) ?? "—"} / ${numeric(probe.potassium) ?? "—"}`,
-      status: numeric(probe.nitrogen) === null
+      badge: numeric(probe.nitrogen) === null
         ? { text: "Awaiting probe", severity: "neutral" }
         : { text: "Reporting", severity: "good" },
     },
@@ -132,149 +118,153 @@ export default function Readings({ live }: { live: LiveState }) {
 
   return (
     <>
-      <header className="page-head rise">
-        <p className="eyebrow">Sensor observations</p>
-        <h1>
-          What the field <em>reports.</em>
-        </h1>
-        <p className="lede">
-          Every row is a measured value. Gaps stay gaps — nothing is averaged
-          into existence.
-        </p>
-        <p className="head-meta">
-          {sourceBadge} ·{" "}
-          {fs.at
-            ? `received ${Math.max(0, Math.round((now - fs.at) / 1000))}s ago`
-            : "no report yet"}
-        </p>
-      </header>
+      <p className="kicker">Sensor ledger</p>
+      <h1 className="headline">
+        What the field <em>reports.</em>
+      </h1>
+      <p className="sub">
+        Every row is a measurement taken by the field unit. Gaps stay gaps —
+        nothing is averaged into existence.
+      </p>
+      <p className="meta-line">
+        {fs.usbOnly
+          ? "BENCH DEVICE REPORT"
+          : live.source === "thingspeak"
+            ? "CLOUD OBSERVATION"
+            : "PHYSICAL FIELD REPORT"}
+        {fs.at ? ` · RECEIVED ${Math.max(0, Math.round((now - fs.at) / 1000))}S AGO` : ""}
+      </p>
 
-      <section className="panel rise">
-        <table className="sensor-table">
-          <thead>
-            <tr>
-              <th>Channel</th>
-              <th>Value</th>
-              <th>State</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.name}>
-                <td>
-                  <span className="sensor-name">{row.name}</span>
-                  <span className="sensor-sub">{row.sub}</span>
-                </td>
-                <td className="value">
-                  {row.value}
-                  {row.unit && <span className="unit"> {row.unit}</span>}
-                </td>
-                <td>
-                  <span className={`pill ${row.status.severity || "neutral"}`}>
-                    {row.status.text}
-                  </span>
-                </td>
+      <section className="section">
+        <div className="panel">
+          <table className="ledger">
+            <thead>
+              <tr>
+                <th>Channel</th>
+                <th>Value</th>
+                <th>State</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        <p className="disclaimer">
-          Soil-probe numbers are raw register values with unverified scaling.
-          MQ-6 values are uncalibrated signals, not a gas concentration or
-          safety assessment.
-        </p>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.name}>
+                  <td>
+                    <span className="chan">{row.name}</span>
+                    <span className="chan-sub">{row.sub}</span>
+                  </td>
+                  <td className="val">
+                    {row.value}
+                    {row.unit && <span className="unit"> {row.unit}</span>}
+                  </td>
+                  <td>
+                    <span className={`badge ${row.badge.severity || "neutral"}`}>
+                      {row.badge.text}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="disclaimer">
+            Soil-probe numbers are raw register values with unverified scaling.
+            MQ-6 values are uncalibrated signals, not a gas concentration or
+            safety assessment.
+          </p>
+        </div>
       </section>
 
-      <section className="panel rise">
-        <div className="panel-title">
-          <h2>Field unit</h2>
+      <section className="section">
+        <div className="section-head">
+          <h2>
+            <span className="index">⌁</span>Field unit &amp; controls
+          </h2>
           <span className="hint">{latest?.hardwareProfile || "unknown profile"}</span>
         </div>
-        <table className="sensor-table">
-          <tbody>
-            <tr>
-              <td>
-                <span className="sensor-name">Device identifier</span>
-              </td>
-              <td className="value" style={{ fontSize: 13 }}>
-                {latest?.deviceId || "—"}
-              </td>
-            </tr>
-            <tr>
-              <td>
-                <span className="sensor-name">Wi-Fi signal</span>
-                <span className="sensor-sub">
-                  <IconSignal size={12} /> radio link quality
-                </span>
-              </td>
-              <td className="value">
-                {latest?.wifiRssi !== undefined && Number.isFinite(latest.wifiRssi)
-                  ? `${latest.wifiRssi} dBm`
-                  : "—"}
-              </td>
-            </tr>
-            <tr>
-              <td>
-                <span className="sensor-name">Cloud history</span>
-                <span className="sensor-sub">
-                  {live.source === "thingspeak"
-                    ? "reading from private ThingSpeak channels"
-                    : "reading from live device stream"}
-                </span>
-              </td>
-              <td>
-                {live.cloudAvailable === undefined ? (
-                  <span className="pill neutral">Checking…</span>
-                ) : live.cloudAvailable ? (
-                  <span className="pill good">Configured</span>
-                ) : (
-                  <span className="pill warning">Unavailable</span>
-                )}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div className="panel">
+          <table className="ledger">
+            <tbody>
+              <tr>
+                <td className="chan">Device identifier</td>
+                <td className="val" style={{ fontSize: 13.5 }}>{latest?.deviceId || "——"}</td>
+              </tr>
+              <tr>
+                <td>
+                  <span className="chan">Wi-Fi signal</span>
+                  <span className="chan-sub">radio link quality</span>
+                </td>
+                <td className="val">
+                  {Number.isFinite(latest?.wifiRssi) ? `${latest!.wifiRssi} dBm` : "——"}
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <span className="chan">Cloud history</span>
+                  <span className="chan-sub">
+                    {live.source === "thingspeak"
+                      ? "from private ThingSpeak channels"
+                      : "from the live device stream"}
+                  </span>
+                </td>
+                <td>
+                  {live.cloudAvailable === undefined ? (
+                    <span className="badge neutral">Checking</span>
+                  ) : live.cloudAvailable ? (
+                    <span className="badge good">Configured</span>
+                  ) : (
+                    <span className="badge warning">Unavailable</span>
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          </table>
 
-        <div className="manual-controls">
-          <h3>Connection &amp; pump controls</h3>
-          <p className="quiet">
-            Each trigger runs one pump for at most three seconds. Only one
-            pump runs at a time; a ten-second cooldown follows each stop.
-            Automatic fire and irrigation responses always take priority.
-          </p>
-          <div className="row-actions" style={{ marginTop: 12 }}>
-            <button
-              className="btn btn-outline"
-              disabled={!fs.canCommand || anyPending || busy}
-              onClick={() => void trigger("PING")}
+          <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--line)" }}>
+            <p style={{ margin: "0 0 6px", fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink-2)" }}>
+              Manual pump triggers
+            </p>
+            <p className="quiet" style={{ marginBottom: 16 }}>
+              One pump at a time, three seconds maximum, ten-second cooldown
+              after each stop. Automatic fire and irrigation responses always
+              take priority.
+            </p>
+            <div className="cta-row">
+              <button
+                className="cta cta-line"
+                disabled={!fs.canCommand || anyPending || busy}
+                onClick={() => void trigger("PING")}
+              >
+                Test cloud link
+              </button>
+              <button
+                className="cta cta-line"
+                disabled={!fs.canCommand || anyPending || busy}
+                onClick={() => void trigger("TEST_FIRE_PUMP")}
+              >
+                <IconFire size={15} /> Fire pump · 3 s
+              </button>
+              <button
+                className="cta cta-line"
+                disabled={!fs.canCommand || anyPending || busy}
+                onClick={() => void trigger("TEST_HYDRATION_PUMP")}
+              >
+                <IconDroplet size={15} /> Hydration pump · 3 s
+              </button>
+              <button
+                className="cta cta-flame"
+                disabled={!fs.canCommand || anyPending || busy}
+                onClick={() => void trigger("STOP_PUMP_TEST")}
+              >
+                Stop pump test
+              </button>
+            </div>
+            <p
+              className={`draft-note ${note.tone === "ok" ? "" : ""}`}
+              style={{ color: note.tone === "ok" ? "var(--mint)" : note.tone === "err" ? "var(--flame)" : "var(--ink-3)" }}
+              role="status"
             >
-              Test cloud link
-            </button>
-            <button
-              className="btn btn-outline"
-              disabled={!fs.canCommand || anyPending || busy}
-              onClick={() => void trigger("TEST_FIRE_PUMP")}
-            >
-              <IconFire size={15} /> Run fire pump (3 s)
-            </button>
-            <button
-              className="btn btn-outline"
-              disabled={!fs.canCommand || anyPending || busy}
-              onClick={() => void trigger("TEST_HYDRATION_PUMP")}
-            >
-              <IconDroplet size={15} /> Run hydration pump (3 s)
-            </button>
-            <button
-              className="btn btn-danger"
-              disabled={!fs.canCommand || anyPending || busy}
-              onClick={() => void trigger("STOP_PUMP_TEST")}
-            >
-              Stop pump test
-            </button>
+              {note.text}
+            </p>
           </div>
-          <p className={`command-note ${note.tone}`} role="status">
-            {note.text}
-          </p>
         </div>
       </section>
     </>
