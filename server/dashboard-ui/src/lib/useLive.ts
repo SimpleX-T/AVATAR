@@ -39,7 +39,6 @@ export interface LiveState {
   fs: FieldState;
   activation: ReturnType<typeof activationState>;
   connected: boolean;
-  loading: boolean;
   feed: FeedEntry[];
   pending: Map<string, PendingCommand>;
   now: number;
@@ -69,7 +68,6 @@ export function useLive(): LiveState {
     new Map(),
   );
   const [now, setNow] = useState(Date.now());
-  const [loading, setLoading] = useState(true);
 
   const lastEventRef = useRef<string | null>(null);
   const lastSocketAt = useRef(0);
@@ -131,7 +129,6 @@ export function useLive(): LiveState {
       /* surfaced through api() / offline banner */
     } finally {
       requestBusy.current = false;
-      setLoading(false);
     }
   }, []);
 
@@ -272,7 +269,6 @@ export function useLive(): LiveState {
     report,
     fs,
     activation,
-    loading,
     connected: connected && Date.now() - lastSocketAt.current < 150_000,
     feed,
     pending,

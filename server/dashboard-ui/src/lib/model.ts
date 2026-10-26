@@ -116,72 +116,45 @@ export function fieldState(
   const fireKnown =
     r.fireSensorEnabled === true && typeof r.fireDetected === "boolean";
   let fire: StatusTriple;
-  if (!fresh)
-    fire = [
-      "Can't tell yet",
-      "This reading is out of date — the unit hasn't checked in recently.",
-      "warning",
-    ];
+  if (!fresh) fire = ["Unknown", "Last report is not current", "warning"];
   else if (!fireKnown)
     fire = [
-      "Nothing on the detector",
+      "No reading",
       r.fireSensorEnabled === false
-        ? "The fire input is switched off in this build."
-        : "The detector isn't talking right now.",
+        ? "Fire input is disabled"
+        : "Detector state is unavailable",
       "warning",
     ];
   else if (r.fireDetected)
-    fire = [
-      "Flame picked up",
-      "Get to the greenhouse — the response is already on it.",
-      "danger",
-    ];
+    fire = ["Detected", "Check the greenhouse now", "danger"];
   else if (r.fireSensorReady !== true)
     fire = [
-      "Warming up",
-      "The detector hasn't settled on a clear sky yet, so it's holding off.",
+      "Initialising",
+      "Detector has not confirmed a stable idle state; response is not armed",
       "warning",
     ];
   else if (o.fireLockout)
-    fire = [
-      "Paused for safety",
-      "It hit its response limit. Give things a look before rearming.",
-      "danger",
-    ];
+    fire = ["Locked", "Response limit reached; inspect the system", "danger"];
   else if (o.fireResponse)
-    fire = ["Spraying now", "The fire pump is running its bounded burst.", "warning"];
-  else
-    fire = ["All clear", "Nothing burning — the detector is watching calmly.", "good"];
+    fire = ["Active", "Fire pump commanded on", "warning"];
+  else fire = ["Monitoring", "No fire reported by the detector", "good"];
 
   let water: StatusTriple;
-  if (!fresh)
-    water = [
-      "Can't tell yet",
-      "This reading is out of date — the unit hasn't checked in recently.",
-      "warning",
-    ];
+  if (!fresh) water = ["Unknown", "Last report is not current", "warning"];
   else if (o.irrigationLockout || o.waterFault)
-    water = [
-      "Paused for safety",
-      "Something looked off with the water path. Check the probe and the plumbing.",
-      "danger",
-    ];
+    water = ["Locked", "Inspect the water path and soil sensor", "danger"];
   else if (!soilValid)
-    water = [
-      "No soil signal",
-      "The moisture probe isn't part of the story yet.",
-      "warning",
-    ];
+    water = ["No reading", "Soil input is missing or invalid", "warning"];
   else if (o.irrigation)
-    water = ["Watering", "The pump is giving the bed a drink right now.", "good"];
+    water = ["Watering", "Irrigation pump commanded on", "good"];
   else if (o.waterSoaking)
-    water = ["Letting it soak", "Watering's done — waiting for the soil to tell the truth.", "good"];
+    water = ["Soaking", "Waiting before the next soil check", "good"];
   else
     water = [
-      r.soilDry === true ? "Soil's thirsty" : "Riding idle",
+      "Standby",
       r.soilDry === true
-        ? "It's dry out there; the unit will act on its own schedule."
-        : "The pump is off and the soil feels fine.",
+        ? "Dry soil reported; local policy decides watering"
+        : "Pump is commanded off",
       "",
     ];
 

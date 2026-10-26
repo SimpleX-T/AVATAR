@@ -11,74 +11,10 @@ import {
   useLoginWithEmail,
   usePrivy,
 } from "@privy-io/react-auth";
-import { GreenhouseScene } from "./illustrations";
 
 type AppProps = {
   configurationRequired?: boolean;
 };
-
-function BrandMark() {
-  return (
-    <a className="mini-brand" href="/" aria-label="Project AVATAR home">
-      <span className="mini-glyph">
-        <svg viewBox="0 0 24 24" aria-hidden>
-          <path d="M6 17C6 9.5 10 6 18 4.5 18.8 13.5 14.5 18 8.5 18c-.9 0-1.7-.3-2.5-1z" />
-          <path d="M6 17c3-5 7-8 12-10" />
-        </svg>
-      </span>
-      <span className="mini-word">
-        avatar<i>.</i>
-      </span>
-    </a>
-  );
-}
-
-const TAGLINES = [
-  "Your greenhouse, one clear view.",
-  "Local protection that never sleeps.",
-  "A research record you can trust.",
-];
-
-function StoryPanel() {
-  const [slide, setSlide] = useState(0);
-  useEffect(() => {
-    const timer = setInterval(
-      () => setSlide((s) => (s + 1) % TAGLINES.length),
-      4200,
-    );
-    return () => clearInterval(timer);
-  }, []);
-
-  return (
-    <aside className="story" aria-label="About AVATAR">
-      <div className="story-art-wrap">
-        <GreenhouseScene width={460} />
-        <div className="float-card">
-          <div className="float-title">Field unit</div>
-          <div className="float-sub">Local protection active</div>
-          <span className="float-chip">ESP32</span>
-        </div>
-      </div>
-      <div className="story-caption">
-        <p key={slide} className="story-tagline">
-          {TAGLINES[slide]}
-        </p>
-        <div className="story-dots" role="tablist" aria-label="Highlights">
-          {TAGLINES.map((_, i) => (
-            <button
-              key={i}
-              role="tab"
-              aria-selected={i === slide}
-              aria-label={`Highlight ${i + 1}`}
-              className={`story-dot ${i === slide ? "on" : ""}`}
-              onClick={() => setSlide(i)}
-            />
-          ))}
-        </div>
-      </div>
-    </aside>
-  );
-}
 
 function AuthenticatedGate() {
   const { ready, authenticated, logout } = usePrivy();
@@ -203,26 +139,27 @@ function AuthenticatedGate() {
 
   if (!ready || syncing) {
     return (
-      <div className="gate-status" role="status">
-        <span className="dots">
-          <i />
-          <i />
-          <i />
-        </span>
-        <p>Preparing your secure field session…</p>
-      </div>
+      <p className="status-copy" role="status">
+        Preparing your secure field session…
+      </p>
     );
   }
 
   if (authenticated) {
     return (
-      <div className="recovery" role="alert">
-        <strong>We confirmed your email, but could not open the dashboard.</strong>
+      <div className="session-recovery" role="alert">
+        <strong>
+          We confirmed your email, but could not open the dashboard.
+        </strong>
         <p>{message || "The secure server session was not completed."}</p>
         <button type="button" onClick={establishServerSession}>
           Try opening the dashboard again
         </button>
-        <button className="text-btn" type="button" onClick={() => void logout()}>
+        <button
+          className="text-button"
+          type="button"
+          onClick={() => void logout()}
+        >
           Sign out and start again
         </button>
       </div>
@@ -234,12 +171,12 @@ function AuthenticatedGate() {
     state.status === "submitting-code";
 
   return awaitingCode ? (
-    <form className="auth-form" onSubmit={verifyCode}>
+    <form onSubmit={verifyCode}>
       <label htmlFor="code">Six-digit code</label>
       <p className="field-help">
         We sent a one-time code to <strong>{email}</strong>.
       </p>
-      <div className="otp-row" onPaste={handleOtpPaste}>
+      <div className="otp-inputs" onPaste={handleOtpPaste}>
         {Array.from({ length: 6 }, (_, index) => (
           <input
             key={index}
@@ -260,14 +197,16 @@ function AuthenticatedGate() {
           />
         ))}
       </div>
-      <button
-        className="cta"
-        disabled={state.status === "submitting-code"}
-        type="submit"
-      >
-        {state.status === "submitting-code" ? "Checking code…" : "Open my dashboard"}
+      <button disabled={state.status === "submitting-code"} type="submit">
+        {state.status === "submitting-code"
+          ? "Checking code…"
+          : "Open my dashboard"}
       </button>
-      <button className="text-btn" type="button" onClick={() => window.location.reload()}>
+      <button
+        className="text-button"
+        type="button"
+        onClick={() => window.location.reload()}
+      >
         Use a different email
       </button>
       {message && (
@@ -277,9 +216,11 @@ function AuthenticatedGate() {
       )}
     </form>
   ) : (
-    <form className="auth-form" onSubmit={requestCode}>
+    <form onSubmit={requestCode}>
       <label htmlFor="email">Email address</label>
-      <p className="field-help">No password. We will email you a one-time code.</p>
+      <p className="field-help">
+        No password. We will email you a one-time code.
+      </p>
       <input
         id="email"
         type="email"
@@ -290,8 +231,10 @@ function AuthenticatedGate() {
         required
         autoFocus
       />
-      <button className="cta" disabled={state.status === "sending-code"} type="submit">
-        {state.status === "sending-code" ? "Sending code…" : "Send sign-in code"}
+      <button disabled={state.status === "sending-code"} type="submit">
+        {state.status === "sending-code"
+          ? "Sending code…"
+          : "Send sign-in code"}
       </button>
       {message && (
         <p className="form-error" role="alert">
@@ -305,40 +248,83 @@ function AuthenticatedGate() {
 export function App({ configurationRequired = false }: AppProps) {
   return (
     <main className="auth-page">
-      <section className="auth-left">
-        <BrandMark />
-        <div className="auth-center">
-          <h1>Welcome back!</h1>
-          <p className="auth-sub">
-            Your greenhouse, your observations. Sign in with a one-time email
-            code — no password to remember.
+      <section className="auth-story" aria-label="Welcome to AVATAR">
+        <a href="/" className="brand" aria-label="Project AVATAR home">
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <path d="M5 25 16 5l11 20M10 17h12M16 5v22" />
+          </svg>
+          <span>
+            avatar<span className="brand-dot">.</span>
+            <small>YOUR FIELD, CONNECTED</small>
+          </span>
+        </a>
+        <div className="story-copy">
+          <p className="eyebrow">A LITTLE CLOSER TO YOUR GREENHOUSE</p>
+          <h1>
+            Good growing starts
+            <br />
+            with a clearer view.
+          </h1>
+          <p className="lede">
+            See what your field is telling you. Follow real observations,
+            understand local protection, and keep a useful research record.
           </p>
-
+        </div>
+        <div className="field-art-wrap">
+          <img
+            className="field-art"
+            src="/assets/field/greenhouse.svg"
+            alt="Isometric cutaway of the AVATAR greenhouse, showing the planted bed, sensors and local field controller"
+          />
+        </div>
+        <div className="story-foot">
+          <span>PROJECT AVATAR</span>
+          <span>Greenhouse farming research</span>
+        </div>
+      </section>
+      <section className="auth-content">
+        <div className="auth-top-note">Your greenhouse, your observations.</div>
+        <article className="auth-card">
+          <div className="flow-progress" aria-label="Your setup journey">
+            <span className="current">1 · Sign in</span>
+            <i aria-hidden="true" />
+            <span>2 · Connect your field</span>
+            <i aria-hidden="true" />
+            <span>3 · Start observing</span>
+          </div>
+          <p className="eyebrow">WELCOME TO AVATAR</p>
+          <h2>
+            Step into your
+            <br />
+            <em>greenhouse.</em>
+          </h2>
+          <p className="auth-intro">
+            Sign in or create your account with a one-time email code. We will
+            guide you through your field setup next.
+          </p>
           {configurationRequired ? (
-            <div className="config-note" role="status">
+            <div className="configuration-note" role="status">
               <strong>Sign-in is not configured yet.</strong>
               <span>
-                The server needs its authentication credentials. Ask the
-                project operator to complete setup.
+                The server needs its authentication credentials. Ask the project
+                operator to complete setup.
               </span>
             </div>
           ) : (
             <AuthenticatedGate />
           )}
-
-          <p className="assure">
-            <svg viewBox="0 0 24 24" aria-hidden>
-              <path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6z" />
-              <path d="m8.5 12 2.5 2.5L16 9" />
+          <div className="privacy-note">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6zM8 12l3 3 5-6" />
             </svg>
-            Your email verifies access. Wi-Fi passwords stay on the field
-            unit. Local protection keeps running independently.
-          </p>
-        </div>
-        <footer className="auth-foot">Project AVATAR · Greenhouse farming research</footer>
+            <p>
+              Your email verifies access. Wi-Fi passwords stay on the field
+              unit. Local protection keeps running independently.
+            </p>
+          </div>
+        </article>
+        <footer>Built for the field. Grounded in real observations.</footer>
       </section>
-
-      <StoryPanel />
     </main>
   );
 }
