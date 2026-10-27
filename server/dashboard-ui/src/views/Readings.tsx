@@ -104,13 +104,26 @@ export default function Readings({ live }: { live: LiveState }) {
         : { text: "Reporting", severity: "good" },
     },
     {
-      name: "N · P · K",
-      sub: "RS-485 NPK raw registers",
-      value:
-        numeric(probe.nitrogen) === null
-          ? "——"
-          : `${numeric(probe.nitrogen)} / ${numeric(probe.phosphorus) ?? "—"} / ${numeric(probe.potassium) ?? "—"}`,
+      name: "Nitrogen (N)",
+      sub: "RS-485 register · unverified scale",
+      value: numeric(probe.nitrogen) === null ? "——" : String(numeric(probe.nitrogen)),
       badge: numeric(probe.nitrogen) === null
+        ? { text: "Awaiting probe", severity: "neutral" }
+        : { text: "Reporting", severity: "good" },
+    },
+    {
+      name: "Phosphorus (P)",
+      sub: "RS-485 register · unverified scale",
+      value: numeric(probe.phosphorus) === null ? "——" : String(numeric(probe.phosphorus)),
+      badge: numeric(probe.phosphorus) === null
+        ? { text: "Awaiting probe", severity: "neutral" }
+        : { text: "Reporting", severity: "good" },
+    },
+    {
+      name: "Potassium (K)",
+      sub: "RS-485 register · unverified scale",
+      value: numeric(probe.potassium) === null ? "——" : String(numeric(probe.potassium)),
+      badge: numeric(probe.potassium) === null
         ? { text: "Awaiting probe", severity: "neutral" }
         : { text: "Reporting", severity: "good" },
     },

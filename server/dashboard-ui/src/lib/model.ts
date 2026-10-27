@@ -214,6 +214,40 @@ export function temperaturePoints(history: HistoryPoint[]): HistoryPoint[] {
     .slice(-40);
 }
 
+// ── Making raw signals mean something ────────────────────────────────
+
+// Firmware calibration: wet median 1983 ADC, dry 3201 ADC.
+export const SOIL_WET_ADC = 1983;
+export const SOIL_DRY_ADC = 3201;
+
+export function soilMoisturePercent(raw: number | null): number | null {
+  if (raw === null) return null;
+  const pct = ((SOIL_DRY_ADC - raw) / (SOIL_DRY_ADC - SOIL_WET_ADC)) * 100;
+  return Math.round(Math.min(Math.max(pct, 0), 100));
+}
+
+// -100 dBm = barely there, -50 dBm = excellent.
+export function rssiQuality(dbm: number | number[] | null): number | null {
+  if (typeof dbm !== "number" || !Number.isFinite(dbm)) return null;
+  return Math.round(Math.min(Math.max((dbm + 100) * 2, 0), 100));
+}
+
+export function rssiWord(dbm: number | null): string {
+  if (dbm === null) return "No signal";
+  if (dbm > -60) return "Strong";
+  if (dbm > -70) return "Good";
+  if (dbm > -80) return "Patchy";
+  return "Weak";
+}
+
+// MQ-6 raw counts — a hint of gas, never a concentration.
+export function mq6Word(raw: number | null): string {
+  if (raw === null) return "No reading";
+  if (raw > 1500) return "Strong smell detected";
+  if (raw > 600) return "Something in the air";
+  return "Clean air";
+}
+
 export function numericSeries(
   history: HistoryPoint[],
   pick: (r: Readings) => number | null | undefined,

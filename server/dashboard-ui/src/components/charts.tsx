@@ -28,9 +28,11 @@ const VIEW_H = 40;
 export function Sparkline({
   points,
   id,
+  height = 34,
 }: {
   points: Point[];
   id: string;
+  height?: number;
 }) {
   const stroke = useCssVar("--chart-line", "#6fe3a5");
   const d = useMemo(() => {
@@ -46,13 +48,13 @@ export function Sparkline({
     return path(pts);
   }, [points]);
 
-  if (!d) return <div style={{ height: 34 }} />;
+  if (!d) return <div style={{ height }} />;
   return (
     <svg
       className="spark-svg"
       viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
       preserveAspectRatio="none"
-      style={{ width: "100%", height: 34, display: "block" }}
+      style={{ width: "100%", height, display: "block" }}
       aria-hidden
     >
       <defs>
@@ -361,5 +363,180 @@ export function BarRow({
         />
       </div>
     </div>
+  );
+}
+
+
+// Rounded-bar chart with a hatched bar wherever a reading is missing —
+// gaps are drawn, never skipped.
+export function BarChart({
+  points,
+  unit,
+  stale,
+}: {
+  points: Point[];
+  unit: string;
+  stale?: boolean;
+}) {
+  const model = useMemo(() => {
+    if (points.length === 0) return null;
+    const values = points.map((p) => p.value);
+    const max = Math.max(...values, 1);
+    return { max: max * 1.15, points };
+  }, [points]);
+
+  if (!model)
+    return (
+      <div className="empty">
+        Recordings land here as rounded bars — gaps appear hatched, never
+        hidden.
+      </div>
+    );
+
+  const fmt = (v: number) => (Math.abs(v) >= 100 ? Math.round(v).toString() : v.toFixed(1));
+  const slots: { value: number | null; at: number }[] = model.points.map(
+    (p) => ({ value: p.value, at: p.at }),
+  );
+  if (stale) slots.push({ value: null, at: Date.now() });
+
+  return (
+    <div className="bar-chart" role="img" aria-label="observation chart">
+      {slots.map((slot, i) => {
+        const h = slot.value === null ? 30 : Math.max((slot.value / model.max) * 100, 6);
+        return (
+          <div
+            key={i}
+            className={`bar-col ${slot.value === null ? "gap" : ""}`}
+          >
+            <div className="bar" style={{ height: `${h}%` }}>
+              <span className="bar-val">
+                {slot.value === null ? "no data" : `${fmt(slot.value)}${unit}`}
+              </span>
+            </div>
+            <span className="bar-x">
+              {new Date(slot.at).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Metric ring card — one value, one dial, one trend ──────────────
+
+export function MetricRing({
+  label,
+  icon,
+  display,
+  unit,
+  percent,
+  ideal,
+  caption,
+  status,
+  spark,
+  id,
+}: {
+  label: string;
+  icon?: React.ReactNode;
+  display: string;
+  unit?: string;
+  percent: number | null;
+  ideal?: [number, number];
+  caption: string;
+  status?: { text: string; severity: string };
+  spark?: Point[];
+  id: string;
+}) {
+  const R = 54;
+  const CIRC = 2 * Math.PI * R;
+  const frac = percent === null ? 0 : Math.min(Math.max(percent / 100, 0), 1);
+  const band = (() => {
+    if (!ideal) return null;
+    const [lo, hi] = ideal;
+    const start = (Math.min(Math.max(lo, 0), 100) / 100) * CIRC;
+    const span = ((Math.min(Math.max(hi, 0), 100) - lo) / 100) * CIRC;
+    return { start, span: Math.max(span, 4) };
+  })();
+
+  return (
+    <article className="card metric-card">
+      <div className="metric-head">
+        <span className="metric-label">
+          {icon}
+          {label}
+        </span>
+        {status && (
+          <span className={`badge ${status.severity}`}>{status.text}</span>
+        )}
+      </div>
+
+      <div className="metric-body">
+        <div className="metric-ring">
+          <svg viewBox="0 0 140 140" aria-hidden>
+            {band && (
+              <circle
+                cx="70"
+                cy="70"
+                r={R}
+                fill="none"
+                stroke="var(--mint)"
+                strokeWidth="10"
+                opacity="0.3"
+                strokeDasharray={`${band.span} ${CIRC - band.span}`}
+                strokeDashoffset={-band.start}
+                strokeLinecap="round"
+                transform="rotate(-90 70 70)"
+              />
+            )}
+            <circle
+              cx="70"
+              cy="70"
+              r={R}
+              fill="none"
+              stroke="var(--line)"
+              strokeWidth="10"
+            />
+            <circle
+              cx="70"
+              cy="70"
+              r={R}
+              fill="none"
+              stroke={
+                status?.severity === "danger"
+                  ? "var(--flame)"
+                  : status?.severity === "warning"
+                    ? "var(--gold)"
+                    : "var(--mint)"
+              }
+              strokeWidth="10"
+              strokeLinecap="round"
+              strokeDasharray={`${CIRC * frac} ${CIRC}`}
+              transform="rotate(-90 70 70)"
+              style={{
+                transition:
+                  "stroke-dasharray 700ms var(--ease), stroke 300ms",
+              }}
+            />
+          </svg>
+          <div className="metric-ring-center">
+            <span className="metric-value num">
+              {display}
+              {unit && <span className="unit">{unit}</span>}
+            </span>
+          </div>
+        </div>
+        <p className="metric-caption">{caption}</p>
+      </div>
+
+      {spark && spark.length > 1 && (
+        <div className="metric-spark">
+          <Sparkline points={spark} id={id} height={30} />
+        </div>
+      )}
+    </article>
   );
 }

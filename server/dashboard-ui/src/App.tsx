@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useLive } from "./lib/useLive";
 import Overview from "./views/Overview";
 import Readings from "./views/Readings";
@@ -11,10 +11,24 @@ import {
   IconSun,
   IconMoon,
   IconRefresh,
+  IconLogout,
+  IconOverview,
+  IconReadings,
+  IconActivity,
+  IconReports,
+  IconSetup,
 } from "./components/icons";
 
 const VIEWS = ["overview", "readings", "activity", "reports", "setup"] as const;
 type ViewKey = (typeof VIEWS)[number];
+
+const ICONS: Record<ViewKey, ReactNode> = {
+  overview: <IconOverview />,
+  readings: <IconReadings />,
+  activity: <IconActivity />,
+  reports: <IconReports />,
+  setup: <IconSetup />,
+};
 
 const LABELS: Record<ViewKey, string> = {
   overview: "Observatory",
@@ -120,7 +134,9 @@ export default function App() {
         <div className="mast-right">
           <span className={`beacon ${live.fs.fresh && live.connected ? "live" : ""}`}>
             <span className="dot" />
-            {live.fs.fresh ? (live.connected ? "LIVE" : "FRESH") : "STALE"}
+            <span className="beacon-text">
+              {live.fs.fresh ? (live.connected ? "LIVE" : "FRESH") : "STALE"}
+            </span>
           </span>
           <button
             className="icon-btn"
@@ -138,8 +154,12 @@ export default function App() {
           >
             {accent === "night" ? <IconSun size={15} /> : <IconMoon size={15} />}
           </button>
-          <button className="link-btn" onClick={() => void signOut()}>
-            Sign out
+          <button
+            className="icon-btn"
+            onClick={() => void signOut()}
+            aria-label="Sign out"
+          >
+            <IconLogout size={15} />
           </button>
         </div>
       </header>
@@ -153,6 +173,20 @@ export default function App() {
           {view === "setup" && <Setup live={live} />}
         </div>
       </main>
+
+      {/* App-style bottom navigation for phones */}
+      <nav className="dock" aria-label="Primary mobile">
+        {VIEWS.map((key) => (
+          <button
+            key={key}
+            className={view === key ? "active" : ""}
+            onClick={() => go(key)}
+          >
+            {ICONS[key]}
+            {LABELS[key]}
+          </button>
+        ))}
+      </nav>
 
       <footer className="ticker" aria-hidden>
         <span className="tick-label">Field telemetry</span>

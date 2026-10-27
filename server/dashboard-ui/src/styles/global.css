@@ -1030,3 +1030,195 @@ button:disabled {
   margin-top: 10px;
   min-height: 16px;
 }
+
+/* ─── Metric cards: one value = one dial + one trend ─────────────── */
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(235px, 1fr));
+  gap: 16px;
+}
+
+.metric-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.metric-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.metric-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+
+.metric-label svg {
+  width: 16px;
+  height: 16px;
+  color: var(--mint);
+}
+
+.metric-body {
+  display: grid;
+  grid-template-columns: 128px 1fr;
+  gap: 14px;
+  align-items: center;
+}
+
+.metric-ring {
+  position: relative;
+  width: 128px;
+  height: 128px;
+}
+
+.metric-ring svg {
+  width: 100%;
+  height: 100%;
+}
+
+.metric-ring-center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+}
+
+.metric-value {
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.05;
+}
+
+.metric-value .unit {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+}
+
+.metric-caption {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.metric-spark {
+  margin: auto -22px -22px;
+  opacity: 0.9;
+}
+
+/* ─── Mobile: app-style chrome ───────────────────────────────────── */
+
+@media (max-width: 880px) {
+  /* Hide the desktop masthead nav; the bottom dock takes over. */
+  .masthead .nav {
+    display: none;
+  }
+
+  /* Compact status: dot only. */
+  .beacon .beacon-text {
+    display: none;
+  }
+  .beacon {
+    padding: 8px;
+  }
+
+  /* Icon-only sign out. */
+  .signout-label {
+    display: none;
+  }
+
+  /* The ticker overlapped on narrow screens — retire it there. */
+  .ticker {
+    display: none;
+  }
+
+  .stage {
+    padding-bottom: 110px;
+  }
+
+  /* Bottom dock navigation. */
+  .dock {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    z-index: 70;
+    display: flex;
+    justify-content: space-around;
+    background: color-mix(in srgb, var(--panel) 92%, transparent);
+    backdrop-filter: blur(18px);
+    border: 1px solid var(--line-2);
+    border-radius: 22px;
+    box-shadow: 0 18px 44px rgba(0,0,0,.35);
+    padding: 8px 6px;
+  }
+
+  .dock button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--ink-3);
+    padding: 6px 12px;
+    border-radius: 14px;
+    transition: color var(--dur-fast), background var(--dur-fast);
+  }
+
+  .dock button.active {
+    color: var(--mint);
+    background: var(--mint-veil);
+  }
+
+  .dock button svg {
+    width: 19px;
+    height: 19px;
+  }
+}
+
+@media (min-width: 881px) {
+  .dock {
+    display: none;
+  }
+}
+
+/* Metric grids stack neatly on phones. */
+@media (max-width: 640px) {
+  .metric-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .metric-body {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+  .metric-caption {
+    text-align: center;
+  }
+  .metric-head {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 430px) {
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
+}
