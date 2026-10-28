@@ -1,0 +1,206 @@
+Off-Grid IoT-Enabled Smart Agricultural Management and Protection System
+This glossary explains the meaning and uses of the major terms, hardware components, sensors, software technologies, and operating principles associated with the project.
+1. Core Project Terminology
+1. Off-Grid System
+Meaning: A system designed to operate independently of the public electricity grid.
+Use in the Project: Supplies electrical power to the agricultural monitoring and protection equipment independently of mains electricity.
+Example: A solar panel and battery provide power to the prototype.
+2. IoT (Internet of Things)
+Meaning: A network of physical devices that collect, exchange, and communicate data through connected systems.
+Use in the Project: Enables agricultural data to be transmitted to software or a remote monitoring platform, allowing users to monitor farm conditions without being physically present.
+3. Smart Agriculture
+Meaning: The use of technology, sensors, automation, and data to improve agricultural management.
+Use in the Project: Helps farmers monitor agricultural conditions, manage resources, collect data, and automate selected farming activities.
+4. Greenhouse
+Meaning: A structure used to grow plants in a controlled or partially controlled environment.
+Use in the Project: Provides the agricultural environment that the system is designed to monitor and manage.
+5. Automation
+Meaning: The use of programmed equipment to perform tasks with little or no direct human intervention.
+Use in the Project: Allows the controller to activate irrigation or fire-response mechanisms automatically when specified conditions are met.
+2. Hardware and Electronics Terminology
+6. ESP32
+Meaning: A microcontroller family with processing, input/output, and wireless communication capabilities.
+Use in the Project: Acts as the main controller. It reads sensor signals, executes programmed logic, controls connected devices, and supports wireless communication.
+7. Microcontroller
+Meaning: A compact programmable computer designed to control electronic devices.
+Use in the Project: Processes sensor inputs and determines which outputs or actuators should be activated.
+8. GPIO (General-Purpose Input/Output)
+Meaning: Configurable pins on a microcontroller used to receive signals or send control signals.
+Use in the Project: Connects the ESP32 to sensors, relays, drivers, and other electronic components.
+9. Sensor
+Meaning: A device that detects or measures a physical or chemical condition and produces a usable signal.
+Use in the Project: Collects information about soil conditions, environmental conditions, or potential fire.
+10. Actuator
+Meaning: A device that converts a control signal into a physical action.
+Use in the Project: Operates mechanisms such as pumps, motors, and valves to control water flow or perform other physical actions.
+11. ADC (Analog-to-Digital Converter)
+Meaning: A circuit that converts an analog voltage into a numerical value that a microcontroller can process.
+Use in the Project: Allows the ESP32 to process analog soil-moisture sensor readings and compare them with programmed thresholds.
+Important: An ADC reading is not automatically a moisture percentage. Calibration is needed to convert raw readings into meaningful physical measurements.
+12. Threshold
+Meaning: A predefined value used to determine when a programmed action should occur.
+Use in the Project: The irrigation control logic uses a threshold of 2000 ADC. According to the stated logic, irrigation activates when the reading exceeds this value.
+3. Soil and Environmental Sensing Terminology
+13. NPK Sensor
+Meaning: A sensor designed to measure or estimate nitrogen, phosphorus, and potassium levels in soil.
+Use in the Project: Provides information about important plant nutrients to support soil-fertility assessment and nutrient-management decisions.
+Important: Measurement accuracy depends on the sensor technology, calibration, and soil conditions.
+14. Nitrogen (N)
+Meaning: An essential plant nutrient involved in chlorophyll production and leafy growth.
+Use in the Project: Nitrogen-related readings can help inform decisions about nutrient management.
+15. Phosphorus (P)
+Meaning: An essential plant nutrient involved in energy transfer, root development, and reproductive growth.
+Use in the Project: Phosphorus-related readings help provide information about soil nutrient conditions.
+16. Potassium (K)
+Meaning: An essential plant nutrient involved in water regulation, enzyme activity, and plant stress tolerance.
+Use in the Project: Potassium-related readings can help inform soil-fertility management.
+17. pH (Potential of Hydrogen)
+Meaning: A measure of how acidic or alkaline a substance is.
+Use in the Project: Soil pH monitoring helps assess conditions that affect nutrient availability and plant growth.
+Reference Scale:
+• Below 7: Acidic.
+• At 7: Neutral.
+• Above 7: Alkaline.
+18. EC (Electrical Conductivity)
+Meaning: A measure of how readily a material or solution conducts electricity.
+Use in the Project: Helps assess dissolved salts and related soil conditions.
+Important: EC does not independently identify the exact quantity of each nutrient in the soil.
+19. Soil Moisture
+Meaning: The amount of water present in soil.
+Use in the Project: Helps determine whether irrigation may be needed by providing readings to the controller.
+20. Capacitive Soil-Moisture Sensor
+Meaning: A sensor that estimates soil moisture by detecting changes in electrical capacitance associated with the soil's water content.
+Use in the Project: Provides soil-moisture readings for irrigation control.
+Advantage: Capacitive sensors are generally less susceptible to electrode corrosion than many resistive probes.
+21. Temperature
+Meaning: A measure of how hot or cold the environment is.
+Use in the Project: Helps monitor growing conditions and can support high-temperature hazard detection when suitable thresholds and control logic are implemented.
+22. Humidity
+Meaning: The amount of water vapour in the air. Relative humidity is expressed as a percentage.
+Use in the Project: Helps monitor environmental conditions that affect plant water loss, growth, and disease risk.
+23. DHT11
+Meaning: A digital temperature and humidity sensor.
+Use in the Project: Measures ambient temperature and relative humidity and sends the readings digitally to a compatible controller.
+Important: The DHT11 measures air temperature and humidity, not soil moisture or NPK.
+4. Irrigation and Fire-Protection Terminology
+24. Automated Irrigation
+Meaning: Supplying water to plants using a system that operates automatically according to programmed conditions.
+Use in the Project: Uses soil-moisture readings and programmed thresholds to determine when the irrigation mechanism should activate or stop.
+25. Water Pump
+Meaning: A device that moves water by creating a pressure difference.
+Use in the Project: Supplies water to the irrigation pipes or fire-response mechanism, depending on the system configuration.
+26. Solenoid Valve
+Meaning: An electrically controlled valve that opens or closes a fluid passage using an electromagnetic mechanism.
+Use in the Project: Controls water flow through a pipe when the appropriate electrical signal is applied.
+27. NC (Normally Closed)
+Meaning: A switch or valve configuration that is closed in its normal, unenergised state.
+Use in the Project: A normally closed solenoid valve prevents water from flowing until the valve is energised, provided the valve is designed to operate this way.
+28. Fire Sensor
+Meaning: A sensor designed to detect a fire-related signal, such as infrared radiation from a flame, depending on its type.
+Use in the Project: Sends a detection signal to the controller so the programmed fire-response mechanism can be activated.
+29. Fire Mitigation
+Meaning: Actions intended to reduce the impact or spread of a fire.
+Use in the Project: Refers to the automatic water-spraying response triggered by fire detection in the prototype.
+Important: The response does not guarantee that every fire can be extinguished.
+30. Offline Fire Response
+Meaning: Fire detection and response that can operate locally without requiring an active Internet connection.
+Use in the Project: The ESP32 executes its stored control logic and activates the fire-response hardware when the programmed condition is met, provided the power supply and required components are functioning.
+31. PWM (Pulse-Width Modulation)
+Meaning: A method of controlling power or a signal by varying the proportion of time it is switched on during each cycle.
+Use in the Project: Can be used to control compatible motors, servo positions, or other electronic devices, depending on the implementation.
+32. MG996R Servo Motor
+Meaning: A geared servo motor designed for controlled angular positioning.
+Use in the Project: Can position a mechanism, such as a nozzle, at a selected angle if configured for that purpose.
+5. Off-Grid Power System Terminology
+33. Solar Panel
+Meaning: A device that converts sunlight into electrical energy through photovoltaic cells.
+Use in the Project: Provides electricity for the off-grid system and can recharge the battery through a suitable charging circuit.
+34. LiFePO4 Battery
+Meaning: A rechargeable lithium iron phosphate battery. LiFePO4 stands for lithium iron phosphate.
+Use in the Project: Stores electrical energy for operating the system when solar energy is insufficient.
+35. Voltage
+Meaning: The electrical potential difference between two points, measured in volts (V).
+Use in the Project: Helps determine the appropriate power supply for the ESP32, sensors, motors, and other components.
+36. Current
+Meaning: The rate at which electric charge flows, measured in amperes (A).
+Use in the Project: Helps determine whether the power supply, battery, and wiring can provide sufficient current to the connected devices.
+37. Buck Converter
+Meaning: A DC-to-DC switching converter that reduces a higher DC voltage to a lower DC voltage.
+Use in the Project: Supplies an appropriate voltage to components that cannot operate directly from the battery voltage.
+38. MOSFET
+Meaning: Metal-Oxide-Semiconductor Field-Effect Transistor, an electronic device commonly used as a switch or amplifier.
+Use in the Project: A suitable MOSFET can allow the ESP32 to control a higher-current load, such as a pump, without drawing the load's full current directly through a GPIO pin.
+39. Power Management
+Meaning: The process of supplying, regulating, and distributing electrical power to system components.
+Use in the Project: Helps ensure that the components receive suitable voltage and current for proper operation.
+6. Software, Networking, and IoT Terminology
+40. Firmware
+Meaning: Software programmed into an embedded device to control its operation.
+Use in the Project: The ESP32 firmware defines how sensor readings are processed, how thresholds are applied, how actuators are controlled, and how the device communicates.
+41. Node.js
+Meaning: A JavaScript runtime that allows JavaScript to execute outside a web browser, including on a server.
+Use in the Project: Supports server-side functions such as receiving or processing device data, handling commands, and supporting the monitoring dashboard.
+42. Server
+Meaning: A computer or software service that receives requests and provides data or functions to other devices or applications.
+Use in the Project: Supports communication between the device and the monitoring software.
+43. Dashboard
+Meaning: A visual interface that presents information about a system.
+Use in the Project: Allows users to view available agricultural readings, system status, and other information supplied by the implementation.
+44. Wi-Fi
+Meaning: A wireless networking technology that allows compatible devices to communicate over a local network.
+Use in the Project: Allows the ESP32 to connect to a compatible network for data transmission and remote services.
+Important: Wi-Fi connectivity does not automatically guarantee Internet access.
+45. Bluetooth
+Meaning: A wireless communication technology used for short-range connections between compatible devices.
+Use in the Project: Provides a potential method for local communication or device setup, depending on whether it is implemented in the prototype.
+46. Telemetry
+Meaning: The collection and transmission of measurements or status information from a device to another system.
+Use in the Project: Allows the agricultural system to report readings and operating status for monitoring and analysis.
+47. Dual Telemetry
+Meaning: An arrangement involving two telemetry paths, channels, or destinations, depending on the system architecture.
+Use in the Project: Refers to the project's two-path telemetry arrangement. The exact paths and the data each carries should be explained according to the implementation.
+48. ThingSpeak
+Meaning: An IoT platform used to collect, store, visualise, and analyse data from connected devices.
+Use in the Project: Supports the publishing of device data for remote viewing or analysis, according to the prototype's configuration.
+49. API (Application Programming Interface)
+Meaning: A defined way for software systems to communicate and request services or data from one another.
+Use in the Project: Allows compatible components, such as the ESP32, server, dashboard, or external IoT services, to exchange information.
+50. Authentication
+Meaning: The process of verifying the identity of a user or device.
+Use in the Project: Helps restrict access to protected software functions and information.
+51. Remote Command
+Meaning: An instruction sent from another device or software application to a target device.
+Use in the Project: Allows software to request an action from the ESP32, provided the command path and corresponding firmware functionality are implemented.
+52. Command Acknowledgement
+Meaning: A message confirming that a command has been received or processed to a specified stage.
+Use in the Project: Helps the server or dashboard determine whether a device received a remote command.
+Important: Receipt acknowledgement does not necessarily prove that the actuator physically completed the requested action.
+7. Testing and Development Terminology
+53. Prototype
+Meaning: An initial working model built to demonstrate and evaluate a design.
+Use in the Project: Demonstrates the intended agricultural monitoring, irrigation, and protection functions before larger-scale deployment.
+54. Testing
+Meaning: The process of checking whether a system or component behaves as expected.
+Use in the Project: Involves testing sensors, control logic, communication, and actuators to verify implemented functions and identify faults.
+55. Calibration
+Meaning: Comparing and adjusting a measurement system against a suitable reference so its readings are more accurate.
+Use in the Project: Helps establish how sensor readings correspond to real conditions, such as soil moisture or pH.
+56. Data Logging
+Meaning: Recording measurements and events for later reference.
+Use in the Project: Can help farmers examine historical soil or environmental conditions and identify changes over time when logging and data retention are implemented.
+57. Real-Time Monitoring
+Meaning: Observing measurements or system status as new information becomes available, with relatively little delay.
+Use in the Project: Allows farmers to monitor available agricultural readings remotely. The actual delay depends on sensor sampling, network connectivity, and software.
+58. Local Control
+Meaning: Processing inputs and controlling devices on the local controller rather than relying on a remote server.
+Use in the Project: Allows the ESP32 to execute its programmed fire-response logic without requiring Internet connectivity.
+8. Important Technical Distinctions
+TermsKey DifferenceSensor vs. ActuatorA sensor measures or detects; an actuator performs a physical action.Microcontroller vs. ServerThe ESP32 controls embedded hardware; the Node.js server handles software and communication functions.Wi-Fi vs. InternetWi-Fi connects devices to a wireless network; Internet access depends on the network's connection to the Internet.ADC vs. PercentageADC is a numerical digital reading; a percentage requires suitable calibration and conversion.NPK vs. ECNPK concerns three plant nutrients; EC measures electrical conductivity and does not identify each nutrient individually.Off-Grid vs. Battery-PoweredOff-grid means independent of mains electricity; a battery may be one part of the independent power system.Command Received vs. Action CompletedAn acknowledgement may confirm receipt without proving physical completion.Fire Detection vs. Fire ExtinguishingDetecting a fire-related signal is different from successfully extinguishing a fire.
+9. Overall System Operation
+The system integrates power generation and storage, agricultural sensing, local control, irrigation, fire protection, and IoT communication.
+• Power supply: The solar panel, battery, and power-regulation components supply electricity to the system.
+• Data collection: Sensors measure soil and environmental conditions or detect fire-related signals.
+• Processing: The ESP32 reads sensor inputs and executes the programmed control logic.
+• Automatic action: The controller activates the appropriate irrigation or fire-response hardware when the programmed conditions are met.
+• Communication: The configured software and IoT services transmit available data for remote monitoring.
+• Offline response: Local fire-response logic can continue operating without the Internet, provided the controller, power supply, sensors, and response hardware remain functional.
